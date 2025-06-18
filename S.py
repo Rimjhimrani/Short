@@ -1210,7 +1210,7 @@ class InventoryManagementSystem:
             # Load and process analysis data
             analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
             if analysis_data:
-                vendor_summary = self.get_vendor_summary(analysis_data)
+                vendor_summary = self.get_vendor_summary(df.to_dict('records'))
                 vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
                 vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
                 st.dataframe(vendor_df, use_container_width=True)
