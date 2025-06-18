@@ -235,9 +235,8 @@ class InventoryManagementSystem:
         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
+        
         def create_top_parts_chart(self, data, status_type, color, key):
-        import plotly.graph_objects as go
-        import streamlit as st
 
         # Filter top 10 parts of the given status type
         top_items = [item for item in data if item['Status'] == status_type]
