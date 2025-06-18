@@ -1862,3 +1862,264 @@ Best regards,
         """
         
         return email_template
+
+    def generate_alerts_and_notifications(self, df):
+        """Generate alerts for critical inventory situations"""
+        alerts = []
+        
+        # Critical shortage alerts
+        critical_shortage = df[df['Variance_%'] < -50]  # More than 50% shortage
+        if not critical_shortage.empty:
+            alerts.append({
+                'type': 'critical',
+                'title': 'Critical Shortage Alert',
+                'message': f"{len(critical_shortage)} items have critical shortage (>50%)",
+                'items': critical_shortage['Material'].tolist()
+            })
+        
+        # High excess alerts
+        high_excess = df[df['Variance_%'] > 100]  # More than 100% excess
+        if not high_excess.empty:
+            alerts.append({
+                'type': 'warning',
+                'title': 'High Excess Alert',
+                'message': f"{len(high_excess)} items have high excess inventory (>100%)",
+                'items': high_excess['Material'].tolist()
+            })
+        
+        # High value variance alerts
+        if 'Stock_Value' in df.columns:
+            high_value_variance = df[(abs(df['Variance_%']) > 30) & (df['Stock_Value'] > df['Stock_Value'].quantile(0.8))]
+            if not high_value_variance.empty:
+                alerts.append({
+                    'type': 'info',
+                    'title': 'High Value Variance Alert',
+                    'message': f"{len(high_value_variance)} high-value items have significant variance",
+                    'items': high_value_variance['Material'].tolist()
+                })
+        
+        return alerts
+
+    def display_alerts(self, df):
+        """Display alerts in the Streamlit interface"""
+        alerts = self.generate_alerts_and_notifications(df)
+        
+        if alerts:
+            st.markdown("#### 🚨 Alerts & Notifications")
+            
+            for alert in alerts:
+                if alert['type'] == 'critical':
+                    st.error(f"**{alert['title']}:** {alert['message']}")
+                elif alert['type'] == 'warning':
+                    st.warning(f"**{alert['title']}:** {alert['message']}")
+                else:
+                    st.info(f"**{alert['title']}:** {alert['message']}")
+                
+                # Show details in expander
+                with st.expander(f"View {len(alert['items'])} affected items"):
+                    for item in alert['items'][:10]:  # Show first 10 items
+                        st.write(f"• {item}")
+                    if len(alert['items']) > 10:
+                        st.write(f"... and {len(alert['items']) - 10} more items")
+
+    def generate_forecast_analysis(self, df):
+        """Generate simple forecast analysis based on variance patterns"""
+        st.markdown("#### 📈 Forecast Analysis")
+        
+        # Calculate trend indicators
+        high_variance_items = df[abs(df['Variance_%']) > 50]
+        stable_items = df[abs(df['Variance_%']) <= 20]
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 📊 Stability Analysis")
+            st.metric("Stable Items", len(stable_items), f"{len(stable_items)/len(df)*100:.1f}%")
+            st.metric("High Variance Items", len(high_variance_items), f"{len(high_variance_items)/len(df)*100:.1f}%")
+            
+            # Stability score
+            stability_score = len(stable_items) / len(df) * 100
+            if stability_score >= 80:
+                st.success(f"🎯 Good stability: {stability_score:.1f}%")
+            elif stability_score >= 60:
+                st.warning(f"⚠️ Moderate stability: {stability_score:.1f}%")
+            else:
+                st.error(f"🚨 Poor stability: {stability_score:.1f}%")
+        
+        with col2:
+            st.markdown("##### 🔮 Forecast Indicators")
+            
+            # Trend analysis
+            excess_trend = len(df[df['Status'] == 'Excess Inventory']) / len(df) * 100
+            shortage_trend = len(df[df['Status'] == 'Short Inventory']) / len(df) * 100
+            
+            st.write(f"**Excess Trend:** {excess_trend:.1f}%")
+            st.write(f"**Shortage Trend:** {shortage_trend:.1f}%")
+            
+            if excess_trend > shortage_trend:
+                st.info("📈 Trend indicates over-ordering pattern")
+            elif shortage_trend > excess_trend:
+                st.info("📉 Trend indicates under-ordering pattern")
+            else:
+                st.info("⚖️ Balanced ordering pattern")
+        
+        # Risk assessment
+        st.markdown("##### ⚠️ Risk Assessment")
+        
+        risk_factors = []
+        if len(df[df['Variance_%'] < -30]) > len(df) * 0.1:
+            risk_factors.append("High shortage risk (>10% items severely short)")
+        
+        if len(df[df['Variance_%'] > 50]) > len(df) * 0.15:
+            risk_factors.append("High excess risk (>15% items with high excess)")
+        
+        if 'Stock_Value' in df.columns:
+            high_value_at_risk = df[(abs(df['Variance_%']) > 30) & (df['Stock_Value'] > df['Stock_Value'].quantile(0.8))]
+            if len(high_value_at_risk) > 0:
+                risk_factors.append(f"High-value items at risk ({len(high_value_at_risk)} items)")
+        
+        if risk_factors:
+            for risk in risk_factors:
+                st.warning(f"⚠️ {risk}")
+        else:
+            st.success("✅ Low risk profile - inventory appears well-managed")
+
+    def export_dashboard_config(self, df):
+        """Export dashboard configuration for future use"""
+        st.markdown("#### ⚙️ Dashboard Configuration")
+        
+        config = {
+            'analysis_date': datetime.now().isoformat(),
+            'total_parts': len(df),
+            'tolerance_level': st.session_state.get('current_tolerance', 30),
+            'columns_used': df.columns.tolist(),
+            'status_distribution': df['Status'].value_counts().to_dict(),
+            'summary_stats': {
+                'total_value': float(df['Stock_Value'].sum()) if 'Stock_Value' in df.columns else 0,
+                'avg_variance': float(df['Variance_%'].mean()),
+                'max_variance': float(df['Variance_%'].max()),
+                'min_variance': float(df['Variance_%'].min())
+            }
+        }
+        
+        import json
+        config_json = json.dumps(config, indent=2)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="💾 Download Configuration",
+                data=config_json,
+                file_name=f"inventory_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                help="Save current analysis configuration"
+            )
+        
+        with col2:
+            if st.button("📋 Copy Configuration"):
+                st.code(config_json, language='json')
+
+def main():
+    """Main function to run the Streamlit app"""
+    st.set_page_config(
+        page_title="Inventory Analysis Dashboard",
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Initialize the analyzer
+    analyzer = InventoryAnalyzer()
+    
+    # Custom CSS for better styling
+    st.markdown("""
+    <style>
+    .metric-container {
+        background-color: #f0f2f6;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 0.5rem 0;
+    }
+    .status-excess { background-color: #ffebee; }
+    .status-short { background-color: #fff3e0; }
+    .status-normal { background-color: #e8f5e8; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Header
+    st.title("📊 Inventory Analysis Dashboard")
+    st.markdown("Analyze inventory levels against norms and identify optimization opportunities")
+    
+    # Sidebar
+    st.sidebar.title("🔧 Configuration")
+    
+    # File upload
+    uploaded_file = st.sidebar.file_uploader(
+        "📁 Upload CSV File",
+        type=['csv'],
+        help="Upload your inventory data in CSV format"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            # Load and analyze data
+            df = analyzer.load_data(uploaded_file)
+            
+            if df is not None:
+                # Display file info
+                st.sidebar.success(f"✅ File loaded: {len(df)} records")
+                
+                # Configure analysis parameters
+                tolerance = st.sidebar.slider(
+                    "📊 Tolerance Level (%)",
+                    min_value=10,
+                    max_value=100,
+                    value=30,
+                    step=5,
+                    help="Acceptable variance percentage"
+                )
+                st.session_state['current_tolerance'] = tolerance
+                
+                # Perform analysis
+                analyzed_df = analyzer.analyze_inventory(df, tolerance)
+                
+                # Display results
+                analyzer.display_summary_metrics(analyzed_df)
+                analyzer.display_detailed_analysis(analyzed_df)
+                analyzer.display_alerts(analyzed_df)
+                analyzer.generate_forecast_analysis(analyzed_df)
+                analyzer.display_export_options(analyzed_df)
+                analyzer.export_dashboard_config(analyzed_df)
+                
+        except Exception as e:
+            st.error(f"❌ Error processing file: {str(e)}")
+            st.info("Please check your file format and try again.")
+    
+    else:
+        # Show sample data format
+        st.info("👆 Please upload a CSV file to begin analysis")
+        
+        st.markdown("#### 📋 Expected CSV Format")
+        sample_data = {
+            'Material': ['PART001', 'PART002', 'PART003'],
+            'Current_Stock': [100, 50, 200],
+            'Required_Stock': [80, 75, 150],
+            'Unit_Price': [10.5, 25.0, 15.75],
+            'Vendor': ['Supplier A', 'Supplier B', 'Supplier A']
+        }
+        st.dataframe(pd.DataFrame(sample_data))
+        
+        st.markdown("""
+        **Required Columns:**
+        - `Material`: Part/item identifier
+        - `Current_Stock`: Current inventory quantity
+        - `Required_Stock`: Target/norm inventory quantity
+        
+        **Optional Columns:**
+        - `Unit_Price`: Price per unit (for value calculations)
+        - `Vendor`: Supplier information
+        - Additional columns will be preserved in the analysis
+        """)
+
+if __name__ == "__main__":
+    main()
