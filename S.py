@@ -897,6 +897,28 @@ class InventoryManagementSystem:
         
         df = pd.DataFrame(analysis_data)
         
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            tolerance = st.selectbox(
+                "Tolerance Zone (+/-)",
+                options=[10, 20, 30, 40, 50],
+                index=2,  # Default to 30%
+                format_func=lambda x: f"{x}%",
+                key="tolerance_select"
+            )
+        with col2:
+            st.write("")  # Add some spacing
+            if st.button("🔄 Apply Tolerance", key="apply_tolerance_btn", type="primary"):
+                self.reanalyze_with_tolerance(tolerance)
+                st.rerun()
+        
+        # Display status criteria
+        st.info(f"""
+            **Status Criteria (Tolerance: ±{tolerance}%)**
+            - 🟢 **Within Norms**: QTY = RM IN QTY ± {tolerance}%
+            - 🔵 **Excess Inventory**: QTY > RM IN QTY + {tolerance}%
+            - 🔴 **Short Inventory**: QTY < RM IN QTY - {tolerance}%
+            """)
         # Analysis controls
         # TABS: Graphs | Tables | Vendor | Export
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
