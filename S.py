@@ -130,29 +130,6 @@ class InventoryAnalyzer:
             'Excess Inventory': '#2196F3', # Blue
             'Short Inventory': '#F44336'   # Red
         }
-    def create_top_parts_chart(self, data, status_type, color, key):
-        top_items = [item for item in data if item['Status'] == status_type]
-        top_items = sorted(top_items, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
-
-        if not top_items:
-            st.info(f"No parts found for status: {status_type}")
-            return
-
-        materials = [item['Material'] for item in top_items]
-        variances = [item['Variance_%'] for item in top_items]
-
-        fig = go.Figure(data=[
-            go.Bar(x=variances, y=materials, orientation='h', marker_color=color)
-        ])
-
-        fig.update_layout(
-            title=f"Top 10 Parts - {status_type}",
-            xaxis_title="Variance %",
-            yaxis_title="Material Code",
-            yaxis=dict(autorange='reversed')
-        )
-
-        st.plotly_chart(fig, use_container_width=True, key=key)
         
     def analyze_inventory(self, pfep_data, current_inventory, tolerance=30):
         """Analyze ONLY inventory parts that exist in PFEP"""
@@ -258,6 +235,33 @@ class InventoryManagementSystem:
         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
+        def create_top_parts_chart(self, data, status_type, color, key):
+        import plotly.graph_objects as go
+        import streamlit as st
+
+        # Filter top 10 parts of the given status type
+        top_items = [item for item in data if item['Status'] == status_type]
+        top_items = sorted(top_items, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
+
+        if not top_items:
+            st.info(f"No parts found for status: {status_type}")
+            return
+
+        materials = [item['Material'] for item in top_items]
+        variances = [item['Variance_%'] for item in top_items]
+
+        fig = go.Figure(data=[
+            go.Bar(x=variances, y=materials, orientation='h', marker_color=color)
+        ])
+
+        fig.update_layout(
+            title=f"Top 10 Parts - {status_type}",
+            xaxis_title="Variance %",
+            yaxis_title="Material Code",
+            yaxis=dict(autorange='reversed')
+        )
+
+        st.plotly_chart(fig, use_container_width=True, key=key)
     
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
