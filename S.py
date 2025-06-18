@@ -1121,7 +1121,7 @@ class InventoryManagementSystem:
                     color_discrete_map=self.analyzer.status_colors,
                     template=st.session_state.user_preferences.get('chart_theme', 'plotly')
                 )
-                fig.update_xaxis(tickangle=45)
+                fig.update_xaxes(tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
     
     def display_analysis_tables(self, df):
