@@ -873,7 +873,166 @@ class InventoryManagementSystem:
         # TABS: Graphs | Tables | Vendor | Export
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
         with tab1:
-            self.display_analysis_charts(df)
+            st.header("📊 Graphical Analysis")
+            # Graph selection
+            st.subheader("Select Graphs to Display")
+        
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                show_pie = st.checkbox("Status Distribution (Pie)", value=True)
+                show_comparison = st.checkbox("QTY vs RM Comparison", value=True)
+                show_variance_hist = st.checkbox("Variance Distribution", value=False)
+        
+            with col2:
+                show_excess = st.checkbox("Top Excess Parts", value=True)
+                show_short = st.checkbox("Top Short Parts", value=True)
+                show_scatter = st.checkbox("QTY vs RM Scatter", value=False)
+        
+            with col3:
+                show_normal = st.checkbox("Top Normal Parts", value=False)
+                show_variance_top = st.checkbox("Top Variance Parts", value=True)
+                show_vendor_qty = st.checkbox("Top 10 Vendors by QTY", value=True)
+            # Create graphs
+            if show_pie:
+                st.subheader("📊 Status Distribution")
+                st.markdown('<div class="graph-description">This pie chart shows the overall distribution of inventory items across different status categories. It helps identify what percentage of your inventory is within acceptable norms, excess, or short. A balanced inventory typically has the majority of items within norms.</div>', unsafe_allow_html=True)
+                # Prepare data for pie chart
+                status_counts = {status: data['count'] for status, data in summary_data.items() if data['count'] > 0}
+                if status_counts:
+                    fig_pie = px.pie(
+                        values=list(status_counts.values()),
+                        names=list(status_counts.keys()),
+                        color=list(status_counts.keys()),
+                        color_discrete_map=analyzer.status_colors,
+                        title="Inventory Status Distribution"
+                    )
+                    fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_pie, use_container_width=True)
+                
+            if show_comparison:
+                st.subheader("📊 QTY vs RM Comparison")
+                st.markdown('<div class="graph-description">This bar chart compares current quantity (QTY) against required minimum quantity (RM IN QTY) for the top 10 highest-value items. It visually shows which items have excess or shortage, helping prioritize inventory adjustments for high-value components.</div>', unsafe_allow_html=True)
+            
+                # Get top 10 by stock value
+                sorted_data = sorted(processed_data, key=lambda x: x['Stock_Value'], reverse=True)[:10]
+            
+                materials = [item['Material'] for item in sorted_data]
+                qty_values = [item['QTY'] for item in sorted_data]
+                rm_values = [item['RM IN QTY'] for item in sorted_data]
+            
+                fig_comparison = go.Figure()
+                fig_comparison.add_trace(go.Bar(name='Current QTY', x=materials, y=qty_values, marker_color='#1f77b4'))
+                fig_comparison.add_trace(go.Bar(name='RM IN QTY', x=materials, y=rm_values, marker_color='#ff7f0e'))
+            
+                fig_comparison.update_layout(
+                    title="QTY vs RM IN QTY Comparison (Top 10 by Stock Value)",
+                    xaxis_title="Material Code",
+                    yaxis_title="Quantity",
+                    barmode='group'
+                )
+                st.plotly_chart(fig_comparison, use_container_width=True)
+            if show_vendor_qty:
+                st.subheader("🏢 Top 10 Vendors by Total QTY")
+                st.markdown('<div class="graph-description">This chart displays the top 10 vendors ranked by their total quantity contribution to your inventory. It helps identify key suppliers and their relative importance in your supply chain, useful for vendor relationship management and risk assessment.</div>', unsafe_allow_html=True)
+                # Sort vendors by total QTY
+                sorted_vendors = sorted(vendor_summary.items(), key=lambda x: x[1]['total_qty'], reverse=True)[:10]
+            
+                vendor_names = [vendor for vendor, _ in sorted_vendors]
+                total_qtys = [data['total_qty'] for _, data in sorted_vendors]
+            
+                fig_vendor = go.Figure()
+                fig_vendor.add_trace(go.Bar(name='Total QTY', x=vendor_names, y=total_qtys, marker_color='#1f77b4'))
+            
+                fig_vendor.update_layout(
+                    title="Top 10 Vendors by Total QTY",
+                    xaxis_title="Vendor",
+                    yaxis_title="Quantity",
+                    showlegend=False  # Hide legend since there's only one series
+                )
+                st.plotly_chart(fig_vendor, use_container_width=True)
+            if show_excess:
+                st.subheader("🔵 Top 10 Excess Inventory Parts")
+                st.markdown('<div class="graph-description">This chart identifies the top 10 parts with the highest excess inventory by variance value. These items represent tied-up capital and storage costs. Consider reducing orders for these items or finding alternative uses to optimize cash flow.</div>', unsafe_allow_html=True)
+                create_top_parts_chart(processed_data, 'Excess Inventory', analyzer.status_colors['Excess Inventory'])
+        
+            if show_short:
+                st.subheader("🔴 Top 10 Short Inventory Parts")
+                st.markdown('<div class="graph-description">This chart shows the top 10 parts with the highest shortage by variance value. These items pose the greatest risk to operations and require immediate attention. Prioritize restocking these items to avoid production delays or stockouts.</div>', unsafe_allow_html=True)
+                create_top_parts_chart(processed_data, 'Short Inventory', analyzer.status_colors['Short Inventory'])
+        
+            if show_normal:
+                st.subheader("🟢 Top 10 Within Norms Parts")
+                st.markdown('<div class="graph-description">This chart displays the top 10 parts that are within acceptable variance limits. These items represent well-managed inventory levels and serve as benchmarks for optimal inventory management practices.</div>', unsafe_allow_html=True)
+                create_top_parts_chart(processed_data, 'Within Norms', analyzer.status_colors['Within Norms'])
+            if show_variance_top:
+                st.subheader("📊 Top 10 Materials by Variance")
+                st.markdown('<div class="graph-description">This chart shows the top 10 materials with the highest absolute variance percentages, regardless of whether they are excess or short. It helps identify the most problematic items requiring immediate inventory management attention.</div>', unsafe_allow_html=True)
+                # Sort by absolute variance
+                sorted_variance = sorted(processed_data, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
+            
+                materials = [item['Material'] for item in sorted_variance]
+                variances = [item['Variance_%'] for item in sorted_variance]
+                colors = [analyzer.status_colors[item['Status']] for item in sorted_variance]
+            
+                fig_variance = go.Figure(data=[
+                    go.Bar(x=materials, y=variances, marker_color=colors)
+                ])
+            
+                fig_variance.update_layout(
+                    title="Top 10 Materials by Variance %",
+                    xaxis_title="Material Code",
+                    yaxis_title="Variance %"
+                )
+                fig_variance.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.5)
+            
+                st.plotly_chart(fig_variance, use_container_width=True)
+            if show_scatter:
+                st.subheader("📊 QTY vs RM Scatter Plot")
+                st.markdown('<div class="graph-description">This scatter plot shows the relationship between current quantity and required minimum quantity for all items. Points on the diagonal line represent perfect matches, while points above indicate excess and below indicate shortage. The color coding helps identify status categories quickly.</div>', unsafe_allow_html=True)
+                df_processed = pd.DataFrame(processed_data)
+                fig_scatter = px.scatter(
+                    df_processed,
+                    x='RM IN QTY',
+                    y='QTY',
+                    color='Status',
+                    color_discrete_map=analyzer.status_colors,
+                    title="QTY vs RM IN QTY Scatter Plot",
+                    hover_data=['Material', 'Variance_%', 'Vendor']
+                )
+                # Add diagonal line
+                max_val = max(df_processed['QTY'].max(), df_processed['RM IN QTY'].max())
+                fig_scatter.add_trace(go.Scatter(
+                    x=[0, max_val],
+                    y=[0, max_val],
+                    mode='lines',
+                    name='Perfect Match',
+                    line=dict(dash='dash', color='black')
+                ))
+                st.plotly_chart(fig_scatter, use_container_width=True)
+            if show_variance_hist:
+                st.subheader("📊 Variance Distribution")
+                st.markdown('<div class="graph-description">This histogram shows the distribution of variance percentages across all inventory items. The red dashed lines indicate the tolerance boundaries. A good inventory distribution should have most items clustered around zero variance, with fewer items at the extremes.</div>', unsafe_allow_html=True)
+                
+                variances = [item['Variance_%'] for item in processed_data]
+                
+                fig_hist = px.histogram(
+                    x=variances,
+                    nbins=30,
+                    title="Variance Distribution",
+                    labels={'x': 'Variance %', 'y': 'Count'},
+                    color_discrete_sequence=['#1f77b4']
+                )
+                
+                # Add tolerance lines
+                fig_hist.add_vline(x=tolerance, line_dash="dash", line_color="red", 
+                              annotation_text=f"+{tolerance}%")
+                fig_hist.add_vline(x=-tolerance, line_dash="dash", line_color="red", 
+                              annotation_text=f"-{tolerance}%")
+                fig_hist.add_vline(x=0, line_dash="solid", line_color="green", 
+                              annotation_text="Target")
+                
+                st.plotly_chart(fig_hist, use_container_width=True)
+                
         with tab2:
             self.display_analysis_tables(df)
 
