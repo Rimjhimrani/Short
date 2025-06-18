@@ -907,7 +907,7 @@ class InventoryManagementSystem:
                         title="Inventory Status Distribution"
                     )
                     fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-                    st.plotly_chart(fig_pie, use_container_width=True)
+                    st.plotly_chart(fig_pie, use_container_width=True, key="status_dist_pie")
                 
             if show_comparison:
                 st.subheader("📊 QTY vs RM Comparison")
@@ -930,7 +930,7 @@ class InventoryManagementSystem:
                     yaxis_title="Quantity",
                     barmode='group'
                 )
-                st.plotly_chart(fig_comparison, use_container_width=True)
+                st.plotly_chart(fig_comparison, use_container_width=True, key="qty_vs_rm_comparison")
             if show_vendor_qty:
                 st.subheader("🏢 Top 10 Vendors by Total QTY")
                 st.markdown('<div class="graph-description">This chart displays the top 10 vendors ranked by their total quantity contribution to your inventory. It helps identify key suppliers and their relative importance in your supply chain, useful for vendor relationship management and risk assessment.</div>', unsafe_allow_html=True)
