@@ -1206,21 +1206,26 @@ class InventoryManagementSystem:
             self.display_analysis_tables(df)
 
         with tab3:
-            # Optional: Filter for Vendor only
-            st.markdown("### 📊 Vendor-Specific Inventory Breakdown")
-            vendor_summary = df.groupby(['Vendor', 'Status']).agg(
-                Parts=('Material', 'count'),
-                Total_Value=('Stock_Value', 'sum')
-            ).reset_index()
-            
-            st.dataframe(vendor_summary, use_container_width=True)
-            
-            fig = px.sunburst(vendor_summary, path=['Vendor', 'Status'], values='Parts', color='Status',
-                      color_discrete_map=self.analyzer.status_colors,
-                      title="Parts Count by Vendor & Status",
-                      template=st.session_state.user_preferences.get('chart_theme', 'plotly'))
-            st.plotly_chart(fig, use_container_width=True)
-            
+            st.subheader("🏭 Vendor Analysis")
+            # Load and process analysis data
+            analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+            if analysis_data:
+                vendor_summary = self.get_vendor_summary(analysis_data)
+                vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
+                vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
+                st.dataframe(vendor_df, use_container_width=True)
+                # Optional: Visualize with sunburst
+                fig = px.sunburst(
+                    vendor_df,
+                    path=['Vendor'],
+                    values='total_value',
+                    title="Total Inventory Value by Vendor",
+                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
+                )
+                st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst")
+            else:
+                st.warning("No analysis data available.")
+
             with tab4:
                 self.display_export_options(df)
 
