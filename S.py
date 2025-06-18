@@ -6,6 +6,7 @@ from datetime import datetime
 import logging
 import pickle
 import base64
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
