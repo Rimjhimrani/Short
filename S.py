@@ -928,11 +928,11 @@ class InventoryManagementSystem:
 
             with col1:
                 show_pie = st.checkbox("Status Distribution (Pie)", value=True)
+                show_excess = st.checkbox("Top Excess Parts", value=True)
                 show_comparison = st.checkbox("QTY vs RM Comparison", value=True)
                 show_variance_hist = st.checkbox("Variance Distribution", value=False)
 
             with col2:
-                show_excess = st.checkbox("Top Excess Parts", value=True)
                 show_short = st.checkbox("Top Short Parts", value=True)
                 show_scatter = st.checkbox("QTY vs RM Scatter", value=False)
 
@@ -998,17 +998,18 @@ class InventoryManagementSystem:
             if show_excess:
                 st.subheader("🔵 Top 10 Excess Inventory Parts")
                 st.markdown('<div class="graph-description">These items represent tied-up capital and storage costs...</div>', unsafe_allow_html=True)
-                create_top_parts_chart(processed_data, 'Excess Inventory', analyzer.status_colors['Excess Inventory'], key="top_excess")
+                self.create_top_parts_chart(processed_data, 'Excess Inventory', analyzer.status_colors['Excess Inventory'], key="top_excess")
             
             if show_short:
                 st.subheader("🔴 Top 10 Short Inventory Parts")
                 st.markdown('<div class="graph-description">These items pose the greatest risk to operations and require immediate attention...</div>', unsafe_allow_html=True)
-                create_top_parts_chart(processed_data, 'Short Inventory', analyzer.status_colors['Short Inventory'], key="top_short")
+                self.create_top_parts_chart(processed_data, 'Short Inventory', analyzer.status_colors['Short Inventory'], key="top_short")
+
             if show_normal:
                 st.subheader("🟢 Top 10 Within Norms Parts")
                 st.markdown('<div class="graph-description">These items represent well-managed inventory levels and serve as benchmarks...</div>', unsafe_allow_html=True)
-                create_top_parts_chart(processed_data, 'Within Norms', analyzer.status_colors['Within Norms'], key="top_normal")
-
+                self.create_top_parts_chart(processed_data, 'Within Norms', analyzer.status_colors['Within Norms'], key="top_normal")
+                
             # 5. Variance Top Chart
             if show_variance_top:
                 st.subheader("📊 Top 10 Materials by Variance")
