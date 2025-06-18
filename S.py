@@ -874,6 +874,11 @@ class InventoryManagementSystem:
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
         with tab1:
             st.header("📊 Graphical Analysis")
+            # Derive summary_data from processed_data
+            from collections import Counter
+            status_counter = Counter([item["Status"] for item in processed_data])
+            summary_data = {status: {"count": count} for status, count in status_counter.items()}
+
             # Graph selection
             st.subheader("Select Graphs to Display")
         
