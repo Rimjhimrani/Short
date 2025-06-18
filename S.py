@@ -918,7 +918,77 @@ class InventoryManagementSystem:
             - 🟢 **Within Norms**: QTY = RM IN QTY ± {tolerance}%
             - 🔵 **Excess Inventory**: QTY > RM IN QTY + {tolerance}%
             - 🔴 **Short Inventory**: QTY < RM IN QTY - {tolerance}%
-            """)
+         """)
+        # Summary Dashboard
+        st.header("📈 Summary Dashboard")
+        
+        processed_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+        if processed_data:
+            analyzer = InventoryAnalyzer()
+            from collections import Counter
+            # Ensure processed_data is a list of dicts from the analysis DataFrame
+            df_processed = pd.DataFrame(processed_data)
+            # Derive summary_data
+            status_counter = Counter(df_processed['Status'])
+            summary_data = {status: {"count": count} for status, count in status_counter.items()}
+        
+            # Calculate total value for each status
+            for status in summary_data:
+                status_data = df_processed[df_processed['Status'] == status]
+                summary_data[status]['value'] = status_data['Stock_Value'].sum() if 'Stock_Value' in status_data.columns else 0
+            # Calculate total value
+            total_value = sum(data['value'] for data in summary_data.values())
+            col1, col2, col3, col4 = st.columns(4)
+        
+            with col1:
+                st.markdown('<div class="metric-card status-normal">', unsafe_allow_html=True)
+                st.metric(
+                    label="🟢 Within Norms",
+                    value=f"{summary_data.get('Within Norms', {'count': 0})['count']} parts",
+                    delta=f"₹{summary_data.get('Within Norms', {'value': 0})['value']:,}"
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col2:
+               st.markdown('<div class="metric-card status-excess">', unsafe_allow_html=True)
+               st.metric(
+                   label="🔵 Excess Inventory",
+                   value=f"{summary_data.get('Excess Inventory', {'count': 0})['count']} parts",
+                   delta=f"₹{summary_data.get('Excess Inventory', {'value': 0})['value']:,}"
+               )
+               st.markdown('</div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown('<div class="metric-card status-short">', unsafe_allow_html=True)
+                st.metric(
+                    label="🔴 Short Inventory",
+                    value=f"{summary_data.get('Short Inventory', {'count': 0})['count']} parts",
+                    delta=f"₹{summary_data.get('Short Inventory', {'value': 0})['value']:,}"
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown('<div class="metric-card status-total">', unsafe_allow_html=True)
+                st.metric(
+                    label="📊 Total Value",
+                    value=f"{len(processed_data)} parts",
+                    delta=f"₹{total_value:,}"
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            # Vendor Summary
+            vendor_summary = analyzer.get_vendor_summary(processed_data)
+            st.header("🏢 Vendor Summary")
+            vendor_df = pd.DataFrame([
+                {
+                    'Vendor': vendor,
+                    'Total Parts': data['total_parts'],
+                    'Total QTY': round(data['total_qty'], 2),
+                    'Total RM': round(data['total_rm'], 2),
+                    'Short Inventory': data['short_parts'],
+                    'Excess Inventory': data['excess_parts'],
+                    'Within Norms': data['normal_parts'],
+                    'Total Value': f"₹{data['total_value']:,}"
+                }
+                for vendor, data in vendor_summary.items()
+            ])
+            st.dataframe(vendor_df, use_container_width=True, hide_index=True)
         # Analysis controls
         # TABS: Graphs | Tables | Vendor | Export
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
