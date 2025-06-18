@@ -1333,7 +1333,7 @@ class InventoryManagementSystem:
                 "Filter by Status",
                 options=df['Status'].unique(),
                 default=df['Status'].unique(),
-                key="status_filter_tab2_table_col1"
+                key=f"status_filter_tab2_table_col1_{uuid.uuid4()}"
             )
         
         with col2:
