@@ -744,7 +744,7 @@ class InventoryManagementSystem:
         
         if inventory_locked:
             st.info("🔒 Inventory data is locked. Analysis results are available below.")
-            self.display_tabbed_analysis_results()
+            self.display_analysis_results()
             return
         
         # Inventory upload section
@@ -809,9 +809,58 @@ class InventoryManagementSystem:
                 st.session_state.persistent_inventory_locked = True
                 st.success("✅ Sample inventory loaded and analyzed!")
                 st.rerun()
-
-    def display_tabbed_analysis_results(self):
-        """Display comprehensive inventory analysis results in organized tabs"""
+    
+    def display_validation_results(self, validation):
+        """Display inventory validation results"""
+        st.subheader("🔍 Data Validation Results")
+        
+        # Summary metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("PFEP Parts", validation['pfep_parts_count'])
+        with col2:
+            st.metric("Inventory Parts", validation['inventory_parts_count'])
+        with col3:
+            st.metric("Matching Parts", validation['matching_parts_count'])
+        with col4:
+            match_percentage = (validation['matching_parts_count'] / validation['pfep_parts_count']) * 100
+            st.metric("Match %", f"{match_percentage:.1f}%")
+        
+        # Issues and warnings
+        if validation['issues']:
+            st.error("❌ **Issues Found:**")
+            for issue in validation['issues']:
+                st.error(f"• {issue}")
+        
+        if validation['warnings']:
+            st.warning("⚠️ **Warnings:**")
+            for warning in validation['warnings']:
+                st.warning(f"• {warning}")
+        
+        if validation['is_valid']:
+            st.success("✅ **Validation Passed:** Inventory data is compatible with PFEP master data.")
+    
+    def perform_inventory_analysis(self):
+        """Perform comprehensive inventory analysis"""
+        pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+        inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
+        
+        if not pfep_data or not inventory_data:
+            st.error("❌ Missing data for analysis")
+            return
+        
+        # Get tolerance from user preferences
+        tolerance = st.session_state.user_preferences.get('default_tolerance', 30)
+        
+        # Perform analysis
+        with st.spinner("Analyzing inventory..."):
+            analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, tolerance)
+            self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
+        
+        st.success(f"✅ Analysis completed for {len(analysis_results)} parts!")
+    
+    def display_analysis_results(self):
+        """Display comprehensive inventory analysis results"""
         analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
         
         if not analysis_data:
@@ -820,8 +869,33 @@ class InventoryManagementSystem:
         
         df = pd.DataFrame(analysis_data)
         
-        # Analysis controls at the top
-        st.subheader("🎛️ Analysis Controls")
+        # Analysis controls
+        # TABS: Graphs | Tables | Vendor | Export
+        tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
+        with tab1:
+            self.display_analysis_charts(df)
+        with tab2:
+            self.display_analysis_tables(df)
+
+        with tab3:
+            # Optional: Filter for Vendor only
+            st.markdown("### 📊 Vendor-Specific Inventory Breakdown")
+            vendor_summary = df.groupby(['Vendor', 'Status']).agg(
+                Parts=('Material', 'count'),
+                Total_Value=('Stock_Value', 'sum')
+            ).reset_index()
+            
+            st.dataframe(vendor_summary, use_container_width=True)
+            
+            fig = px.sunburst(vendor_summary, path=['Vendor', 'Status'], values='Parts', color='Status',
+                      color_discrete_map=self.analyzer.status_colors,
+                      title="Parts Count by Vendor & Status",
+                      template=st.session_state.user_preferences.get('chart_theme', 'plotly'))
+            st.plotly_chart(fig, use_container_width=True)
+            
+            with tab4:
+                self.display_export_options(df)
+
         col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
@@ -847,32 +921,33 @@ class InventoryManagementSystem:
                     st.success("✅ Data reset. Ready for new analysis.")
                     st.rerun()
         
-        # Key metrics overview (always visible)
-        self.display_overview_metrics(df)
+        # Key metrics dashboard
+        self.display_analysis_metrics(df)
         
-        # Create tabs for different analysis views
-        tab1, tab2, tab3, tab4 = st.tabs([
-            "📈 Graphical Analysis", 
-            "📋 Detailed Data", 
-            "🏢 Vendor Analysis", 
-            "📥 Export"
-        ])
+        # Charts and visualizations
+        self.display_analysis_charts(df)
         
-        with tab1:
-            self.display_graphical_analysis_tab(df)
+        # Detailed tables
+        self.display_analysis_tables(df)
         
-        with tab2:
-            self.display_detailed_data_tab(df)
+        # Export options
+        self.display_export_options(df)
+    
+    def reanalyze_with_tolerance(self, new_tolerance):
+        """Reanalyze inventory with new tolerance"""
+        pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+        inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
         
-        with tab3:
-            self.display_vendor_analysis_tab(df)
-        
-        with tab4:
-            self.display_export_tab(df)
-
-    def display_overview_metrics(self, df):
-        """Display key overview metrics at the top"""
-        st.subheader("📊 Overview Metrics")
+        if pfep_data and inventory_data:
+            with st.spinner(f"Reanalyzing with {new_tolerance}% tolerance..."):
+                analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, new_tolerance)
+                self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
+                st.session_state.user_preferences['default_tolerance'] = new_tolerance
+            st.success("✅ Analysis updated!")
+    
+    def display_analysis_metrics(self, df):
+        """Display key analysis metrics"""
+        st.subheader("📊 Key Metrics")
         
         # Calculate metrics
         total_parts = len(df)
@@ -888,34 +963,42 @@ class InventoryManagementSystem:
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
             st.metric(
-                "Total Parts", 
+                "Total Parts Analyzed", 
                 total_parts,
-                help="Total number of parts analyzed"
+                help="Total number of parts in analysis"
             )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
             st.metric(
                 "Within Norms", 
                 within_norms,
                 delta=f"{(within_norms/total_parts)*100:.1f}%"
             )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col3:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
             st.metric(
-                "Excess Items", 
+                "Excess Inventory", 
                 excess_inventory,
                 delta=f"{(excess_inventory/total_parts)*100:.1f}%",
                 delta_color="inverse"
             )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col4:
+            st.markdown('<div class="metric-container">', unsafe_allow_html=True)
             st.metric(
-                "Short Items", 
+                "Short Inventory", 
                 short_inventory,
                 delta=f"{(short_inventory/total_parts)*100:.1f}%",
                 delta_color="inverse"
             )
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Financial metrics
         col1, col2, col3 = st.columns(3)
@@ -942,32 +1025,29 @@ class InventoryManagementSystem:
                 delta=f"{(short_value/total_stock_value)*100:.1f}%" if total_stock_value > 0 else "0%",
                 delta_color="inverse"
             )
+    
+    def display_analysis_charts(self, df):
+        """Display analysis charts and visualizations"""
+        st.subheader("📈 Analysis Visualizations")
         
-        st.markdown("---")
-
-    def display_graphical_analysis_tab(self, df):
-        """Tab 1: Display charts and visualizations"""
-        st.subheader("📈 Visual Analytics Dashboard")
-        
-        # Status distribution charts
+        # Status distribution
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Inventory Status Distribution")
+            st.markdown('<div class="graph-description">Distribution of parts by inventory status</div>', unsafe_allow_html=True)
             status_counts = df['Status'].value_counts()
             
             fig = px.pie(
                 values=status_counts.values, 
                 names=status_counts.index,
-                title="Parts by Status",
+                title="Inventory Status Distribution",
                 color_discrete_map=self.analyzer.status_colors,
                 template=st.session_state.user_preferences.get('chart_theme', 'plotly')
             )
-            fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.markdown("#### Financial Impact by Status")
+            st.markdown('<div class="graph-description">Financial impact by inventory status</div>', unsafe_allow_html=True)
             status_values = df.groupby('Status')['Stock_Value'].sum().reset_index()
             
             fig = px.bar(
@@ -982,11 +1062,11 @@ class InventoryManagementSystem:
             fig.update_layout(yaxis_title="Stock Value (₹)")
             st.plotly_chart(fig, use_container_width=True)
         
-        # Variance analysis charts
+        # Variance analysis
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### Current vs Required Quantity")
+            st.markdown('<div class="graph-description">Quantity variance: Current vs Required</div>', unsafe_allow_html=True)
             fig = px.scatter(
                 df, 
                 x='RM IN QTY', 
@@ -994,7 +1074,7 @@ class InventoryManagementSystem:
                 color='Status',
                 size='Stock_Value',
                 hover_data=['Material', 'Variance_%'],
-                title="Quantity Comparison",
+                title="Current vs Required Quantity",
                 color_discrete_map=self.analyzer.status_colors,
                 template=st.session_state.user_preferences.get('chart_theme', 'plotly')
             )
@@ -1003,104 +1083,72 @@ class InventoryManagementSystem:
             fig.add_shape(
                 type="line",
                 x0=0, y0=0, x1=max_qty, y1=max_qty,
-                line=dict(color="gray", width=2, dash="dash"),
-                name="Perfect Match"
-            )
-            fig.update_layout(
-                xaxis_title="Required Quantity",
-                yaxis_title="Current Quantity"
+                line=dict(color="gray", width=2, dash="dash")
             )
             st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            st.markdown("#### Top Variance Items")
-            # Top 15 variance parts for better visibility
-            top_variance = df.nlargest(15, 'Variance_%')[['Material', 'Variance_%', 'Status']]
+            st.markdown('<div class="graph-description">Parts with highest variance percentages</div>', unsafe_allow_html=True)
+            # Top 10 variance parts
+            top_variance = df.nlargest(10, 'Variance_%')[['Material', 'Variance_%', 'Status']]
             
             fig = px.bar(
                 top_variance, 
                 x='Variance_%', 
                 y='Material',
                 color='Status',
-                title="Highest Variance Parts (%)",
+                title="Top 10 Variance Parts (%)",
                 orientation='h',
                 color_discrete_map=self.analyzer.status_colors,
                 template=st.session_state.user_preferences.get('chart_theme', 'plotly')
             )
-            fig.update_layout(
-                yaxis={'categoryorder': 'total ascending'},
-                xaxis_title="Variance Percentage (%)"
-            )
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
             st.plotly_chart(fig, use_container_width=True)
         
-        # Additional charts
+        # Vendor analysis
         if 'Vendor' in df.columns:
-            st.markdown("#### Vendor Performance Overview")
-            vendor_summary = df.groupby('Vendor').agg({
-                'Status': lambda x: (x == 'Within Norms').sum(),
-                'Stock_Value': 'sum',
-                'Material': 'count'
-            }).reset_index()
-            vendor_summary.columns = ['Vendor', 'Parts_Within_Norms', 'Total_Value', 'Total_Parts']
-            vendor_summary['Performance_%'] = (vendor_summary['Parts_Within_Norms'] / vendor_summary['Total_Parts']) * 100
+            vendor_analysis = df.groupby(['Vendor', 'Status']).size().unstack(fill_value=0).reset_index()
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
+            if not vendor_analysis.empty:
+                st.markdown('<div class="graph-description">Inventory status distribution by vendor</div>', unsafe_allow_html=True)
+                
                 fig = px.bar(
-                    vendor_summary.head(10), 
-                    x='Performance_%', 
-                    y='Vendor',
-                    title="Top 10 Vendor Performance (%)",
-                    orientation='h',
+                    vendor_analysis.melt(id_vars=['Vendor'], var_name='Status', value_name='Count'),
+                    x='Vendor', 
+                    y='Count',
+                    color='Status',
+                    title="Inventory Status by Vendor",
+                    color_discrete_map=self.analyzer.status_colors,
                     template=st.session_state.user_preferences.get('chart_theme', 'plotly')
                 )
-                fig.update_layout(
-                    xaxis_title="Performance (%)",
-                    yaxis={'categoryorder': 'total ascending'}
-                )
+                fig.update_xaxis(tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                fig = px.scatter(
-                    vendor_summary,
-                    x='Total_Parts',
-                    y='Performance_%',
-                    size='Total_Value',
-                    hover_data=['Vendor'],
-                    title="Vendor Performance vs Volume",
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                fig.update_layout(
-                    xaxis_title="Total Parts",
-                    yaxis_title="Performance (%)"
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-    def display_detailed_data_tab(self, df):
-        """Tab 2: Display detailed data with filtering options"""
-        st.subheader("📋 Detailed Inventory Data")
+    
+    def display_analysis_tables(self, df):
+        """Display detailed analysis tables"""
+        st.subheader("📋 Detailed Analysis")
         
-        # Filter controls
-        st.markdown("#### Filter Options")
-        col1, col2, col3, col4 = st.columns(4)
+        # Filter options
+        col1, col2, col3 = st.columns(3)
         
         with col1:
-            status_filter = st.selectbox(
+            status_filter = st.multiselect(
                 "Filter by Status",
-                options=['All'] + list(df['Status'].unique()),
-                key="detailed_status_filter"
+                options=df['Status'].unique(),
+                default=df['Status'].unique(),
+                key="status_filter"
             )
         
         with col2:
             if 'Vendor' in df.columns:
-                vendor_filter = st.selectbox(
+                vendor_filter = st.multiselect(
                     "Filter by Vendor",
-                    options=['All'] + list(df['Vendor'].unique()),
-                    key="detailed_vendor_filter"
+                    options=df['Vendor'].unique(),
+                    default=df['Vendor'].unique(),
+                    key="vendor_filter"
                 )
             else:
-                vendor_filter = 'All'
+                vendor_filter = []
         
         with col3:
             variance_threshold = st.number_input(
@@ -1109,1017 +1157,179 @@ class InventoryManagementSystem:
                 max_value=500.0,
                 value=0.0,
                 step=5.0,
-                key="detailed_variance_threshold"
-            )
-        
-        with col4:
-            sort_by = st.selectbox(
-                "Sort by",
-                options=['Material', 'Variance_%', 'Stock_Value', 'QTY', 'RM IN QTY'],
-                key="detailed_sort_by"
+                key="variance_threshold"
             )
         
         # Apply filters
-        filtered_df = df.copy()
+        filtered_df = df[df['Status'].isin(status_filter)]
         
-        if status_filter != 'All':
-            filtered_df = filtered_df[filtered_df['Status'] == status_filter]
-        
-        if vendor_filter != 'All' and 'Vendor' in df.columns:
-            filtered_df = filtered_df[filtered_df['Vendor'] == vendor_filter]
+        if vendor_filter and 'Vendor' in df.columns:
+            filtered_df = filtered_df[filtered_df['Vendor'].isin(vendor_filter)]
         
         if variance_threshold > 0:
             filtered_df = filtered_df[abs(filtered_df['Variance_%']) >= variance_threshold]
         
-        # Sort data
-        ascending = True if sort_by in ['Material'] else False
-        filtered_df = filtered_df.sort_values(sort_by, ascending=ascending)
+        st.info(f"Showing {len(filtered_df)} of {len(df)} parts")
         
-        # Display summary
-        st.info(f"📊 Showing {len(filtered_df)} of {len(df)} parts")
-        
-        if len(filtered_df) > 0:
-            # Quick stats for filtered data
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Filtered Parts", len(filtered_df))
-            with col2:
-                st.metric("Total Value", f"₹{filtered_df['Stock_Value'].sum():,.0f}")
-            with col3:
-                avg_variance = filtered_df['Variance_%'].mean()
-                st.metric("Avg Variance", f"{avg_variance:.1f}%")
-            with col4:
-                if status_filter == 'All':
-                    within_norms_pct = (len(filtered_df[filtered_df['Status'] == 'Within Norms']) / len(filtered_df)) * 100
-                    st.metric("Within Norms", f"{within_norms_pct:.1f}%")
-                else:
-                    st.metric("Status", status_filter)
-            
-            st.markdown("---")
-            
-            # Data table with enhanced formatting
-            st.markdown("#### Detailed Data Table")
-            
-            # Format the dataframe for better display
-            display_df = filtered_df.copy()
-            
-            # Round numerical columns
-            display_df = display_df.round({
-                'QTY': 2,
-                'RM IN QTY': 2,
-                'Variance_%': 1,
-                'Variance_Value': 2
-            })
-            
-            # Apply conditional formatting based on status
-            def highlight_status(row):
-                if row['Status'] == 'Excess Inventory':
-                    return ['background-color: #ffebee'] * len(row)
-                elif row['Status'] == 'Short Inventory':
-                    return ['background-color: #fff3e0'] * len(row)
-                elif row['Status'] == 'Within Norms':
-                    return ['background-color: #e8f5e8'] * len(row)
-                else:
-                    return [''] * len(row)
-            
-            # Display the styled dataframe
-            styled_df = display_df.style.format({
-                'Stock_Value': '₹{:,.0f}',
-                'Variance_%': '{:.1f}%',
-                'QTY': '{:.2f}',
-                'RM IN QTY': '{:.2f}',
-                'Variance_Value': '{:.2f}'
-            }).apply(highlight_status, axis=1)
-            
-            st.dataframe(
-                styled_df,
-                use_container_width=True,
-                height=min(600, len(filtered_df) * 35 + 50)
-            )
-            
-            # Detailed status breakdown
-            if status_filter == 'All':
-                st.markdown("#### Status-wise Breakdown")
+        # Status-specific tables
+        for status in ['Short Inventory', 'Excess Inventory', 'Within Norms']:
+            if status in status_filter:
+                status_df = filtered_df[filtered_df['Status'] == status]
                 
-                for status in ['Short Inventory', 'Excess Inventory', 'Within Norms']:
-                    status_df = filtered_df[filtered_df['Status'] == status]
-                    
-                    if not status_df.empty:
-                        with st.expander(f"{status} ({len(status_df)} parts)", expanded=False):
-                            if status == 'Short Inventory':
-                                st.error("⚠️ **Action Required:** These parts need immediate restocking")
-                                # Show top 5 most critical shortages
-                                critical_short = status_df.nsmallest(5, 'Variance_%')
-                                st.markdown("**Most Critical Shortages:**")
-                                for _, row in critical_short.iterrows():
-                                    st.write(f"• {row['Material']}: {abs(row['Variance_%']):.1f}% under norm")
-                            
-                            elif status == 'Excess Inventory':
-                                st.warning("📦 **Optimization Opportunity:** Consider reducing these quantities")
-                                # Show top 5 highest excess
-                                highest_excess = status_df.nlargest(5, 'Variance_%')
-                                st.markdown("**Highest Excess Items:**")
-                                for _, row in highest_excess.iterrows():
-                                    st.write(f"• {row['Material']}: {row['Variance_%']:.1f}% over norm")
-                            
-                            else:
-                                st.success("✅ **Well Managed:** These parts are within acceptable limits")
-                            
-                            # Show value summary for this status
-                            status_value = status_df['Stock_Value'].sum()
-                            st.metric(f"Total {status} Value", f"₹{status_value:,.0f}")
+                if not status_df.empty:
+                    with st.expander(f"📊 {status} ({len(status_df)} parts)", expanded=(status != 'Within Norms')):
+                        
+                        # Status-specific styling
+                        if status == 'Short Inventory':
+                            st.markdown('<div class="status-card status-short">', unsafe_allow_html=True)
+                            st.markdown("**⚠️ Action Required:** These parts need restocking")
+                        elif status == 'Excess Inventory':
+                            st.markdown('<div class="status-card status-excess">', unsafe_allow_html=True)
+                            st.markdown("**📦 Optimization Opportunity:** Consider reducing these quantities")
+                        else:
+                            st.markdown('<div class="status-card status-normal">', unsafe_allow_html=True)
+                            st.markdown("**✅ Well Managed:** These parts are within acceptable limits")
+                        
+                        st.markdown('</div>', unsafe_allow_html=True)
+                        
+                        # Display table
+                        display_df = status_df.copy()
+                        
+                        # Format columns for better display
+                        display_df = display_df.round({
+                            'QTY': 2,
+                            'RM IN QTY': 2,
+                            'Variance_%': 1,
+                            'Variance_Value': 2
+                        })
+                        
+                        st.dataframe(
+                            display_df.style.format({
+                                'Stock_Value': '₹{:,.0f}',
+                                'Variance_%': '{:.1f}%',
+                                'QTY': '{:.2f}',
+                                'RM IN QTY': '{:.2f}',
+                                'Variance_Value': '{:.2f}'
+                            }),
+                            use_container_width=True,
+                            height=min(300, len(status_df) * 35 + 50)
+                        )
+    
+    def display_export_options(self, df):
+        """Display data export options"""
+        st.subheader("📥 Export Results")
         
-        else:
-            st.warning("No data matches the current filter criteria.")
-
-    def display_vendor_analysis_tab(self, df):
-        """Tab 3: Vendor-specific analysis"""
-        st.subheader("🏢 Vendor Analysis Dashboard")
-        
-        if 'Vendor' not in df.columns:
-            st.warning("⚠️ Vendor information is not available in the current dataset.")
-            st.info("To enable vendor analysis, ensure your inventory data includes a 'Vendor' column.")
-            return
-        
-        # Vendor selection
-        vendors = ['All Vendors'] + sorted(df['Vendor'].unique().tolist())
-        selected_vendor = st.selectbox(
-            "Select Vendor for Analysis",
-            options=vendors,
-            key="vendor_analysis_selection"
-        )
-        
-        # Filter data based on vendor selection
-        if selected_vendor == 'All Vendors':
-            vendor_df = df.copy()
-            analysis_title = "All Vendors Overview"
-        else:
-            vendor_df = df[df['Vendor'] == selected_vendor].copy()
-            analysis_title = f"Vendor Analysis: {selected_vendor}"
-        
-        st.markdown(f"#### {analysis_title}")
-        
-        if len(vendor_df) == 0:
-            st.warning("No data available for the selected vendor.")
-            return
-        
-        # Vendor metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Total Parts", len(vendor_df))
-        
-        with col2:
-            within_norms = len(vendor_df[vendor_df['Status'] == 'Within Norms'])
-            performance = (within_norms / len(vendor_df)) * 100
-            st.metric("Performance", f"{performance:.1f}%")
-        
-        with col3:
-            total_value = vendor_df['Stock_Value'].sum()
-            st.metric("Total Value", f"₹{total_value:,.0f}")
-        
-        with col4:
-            avg_variance = vendor_df['Variance_%'].mean()
-            st.metric("Avg Variance", f"{avg_variance:.1f}%")
-        
-        # Vendor comparison (when All Vendors is selected)
-        if selected_vendor == 'All Vendors':
-            st.markdown("#### Vendor Comparison")
-            
-            # Create vendor summary
-            vendor_summary = df.groupby('Vendor').agg({
-                'Material': 'count',
-                'Stock_Value': 'sum',
-                'Variance_%': 'mean',
-                'Status': [
-                    lambda x: (x == 'Within Norms').sum(),
-                    lambda x: (x == 'Excess Inventory').sum(),
-                    lambda x: (x == 'Short Inventory').sum()
-                ]
-            }).round(2)
-            
-            # Flatten column names
-            vendor_summary.columns = [
-                'Total_Parts', 'Total_Value', 'Avg_Variance',
-                'Within_Norms', 'Excess', 'Short'
-            ]
-            vendor_summary = vendor_summary.reset_index()
-            vendor_summary['Performance_%'] = (vendor_summary['Within_Norms'] / vendor_summary['Total_Parts']) * 100
-            
-            # Vendor comparison charts
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                fig = px.bar(
-                    vendor_summary.sort_values('Performance_%', ascending=True).tail(10),
-                    x='Performance_%',
-                    y='Vendor',
-                    title="Top 10 Vendor Performance (%)",
-                    orientation='h',
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                fig.update_layout(yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                fig = px.scatter(
-                    vendor_summary,
-                    x='Total_Parts',
-                    y='Performance_%',
-                    size='Total_Value',
-                    hover_data=['Vendor', 'Avg_Variance'],
-                    title="Performance vs Volume",
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # Vendor summary table
-            st.markdown("#### Vendor Summary Table")
-            
-            # Format and display vendor summary
-            display_summary = vendor_summary.copy()
-            display_summary = display_summary.sort_values('Performance_%', ascending=False)
-            
-            styled_summary = display_summary.style.format({
-                'Total_Value': '₹{:,.0f}',
-                'Avg_Variance': '{:.1f}%',
-                'Performance_%': '{:.1f}%'
-            })
-            
-            st.dataframe(styled_summary, use_container_width=True)
-        
-        else:
-            # Individual vendor analysis
-            st.markdown(f"#### Detailed Analysis for {selected_vendor}")
-            
-            # Status breakdown for selected vendor
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                status_counts = vendor_df['Status'].value_counts()
-                fig = px.pie(
-                    values=status_counts.values,
-                    names=status_counts.index,
-                    title=f"{selected_vendor} - Status Distribution",
-                    color_discrete_map=self.analyzer.status_colors,
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                # Variance distribution
-                fig = px.histogram(
-                    vendor_df,
-                    x='Variance_%',
-                    color='Status',
-                    title=f"{selected_vendor} - Variance Distribution",
-                    color_discrete_map=self.analyzer.status_colors,
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            # Problem areas for selected vendor
-            st.markdown("#### Problem Areas")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                excess_items = vendor_df[vendor_df['Status'] == 'Excess Inventory']
-                if not excess_items.empty:
-                    st.error(f"**Excess Inventory:** {len(excess_items)} items")
-                    top_excess = excess_items.nlargest(5, 'Variance_%')[['Material', 'Variance_%', 'Stock_Value']]
-                    st.dataframe(
-                        top_excess.style.format({
-                            'Variance_%': '{:.1f}%',
-                            'Stock_Value': '₹{:,.0f}'
-                        }),
-                        use_container_width=True
-                    )
-                else:
-                    st.success("✅ No excess inventory issues")
-            
-            with col2:
-                short_items = vendor_df[vendor_df['Status'] == 'Short Inventory']
-                if not short_items.empty:
-                    st.warning(f"**Short Inventory:** {len(short_items)} items")
-                    top_short = short_items.nsmallest(5, 'Variance_%')[['Material', 'Variance_%', 'Stock_Value']]
-                    st.dataframe(
-                        top_short.style.format({
-                            'Variance_%': '{:.1f}%',
-                            'Stock_Value': '₹{:,.0f}'
-                        }),
-                        use_container_width=True
-                    )
-                else:
-                    st.success("✅ No shortage issues")
-            
-            # Detailed vendor data
-            st.markdown("#### Detailed Part List")
-            
-            # Add sorting options for vendor data
-            sort_options = ['Material', 'Variance_%', 'Stock_Value', 'Status']
-            sort_by = st.selectbox(
-                "Sort by:",
-                options=sort_options,
-                key="vendor_sort_by"
-            )
-            
-            sorted_vendor_df = vendor_df.sort_values(
-                sort_by, 
-                ascending=(sort_by == 'Material')
-            )
-            
-            st.dataframe(
-                sorted_vendor_df.style.format({
-                    'Stock_Value': '₹{:,.0f}',
-                    'Variance_%': '{:.1f}%',
-                    'QTY': '{:.2f}',
-                    'RM IN QTY': '{:.2f}',
-                    'Variance_Value': '{:.2f}'
-                }),
-                use_container_width=True,
-                height=400
-            )
-
-    def display_export_tab(self, df):
-        """Tab 4: Export options and report generation"""
-        st.subheader("📥 Export & Reports")
-        
-        st.markdown("#### Available Export Options")
-        
-        # Export options in columns
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.markdown("##### 📄 Data Exports")
-            
-            # CSV Export
+            # Export to CSV
             csv_data = df.to_csv(index=False)
             st.download_button(
-                label="📊 Download Complete Data (CSV)",
+                label="📄 Download CSV",
                 data=csv_data,
                 file_name=f"inventory_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
                 mime="text/csv",
-                help="Download complete analysis data as CSV file",
-                use_container_width=True
+                help="Download analysis results as CSV file"
             )
-            
-            # Excel Export (if openpyxl is available)
-            try:
-                from io import BytesIO
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df.to_excel(writer, sheet_name='Complete_Analysis', index=False)
-                    
-                    # Create separate sheets for each status
-                    for status in df['Status'].unique():
-                        status_df = df[df['Status'] == status]
-                        sheet_name = status.replace(' ', '_')[:31]  # Excel sheet name limit
-                        status_df.to_excel(writer, sheet_name=sheet_name, index=False)
-                    
-                    # Summary sheet
-                    summary_data = {
-                        'Metric': ['Total Parts', 'Within Norms', 'Excess Inventory', 'Short Inventory', 
-                                  'Total Stock Value', 'Excess Value', 'Short Value'],
-                        'Value': [
-                            len(df),
-                            len(df[df['Status'] == 'Within Norms']),
-                            len(df[df['Status'] == 'Excess Inventory']),
-                            len(df[df['Status'] == 'Short Inventory']),
-                            f"₹{df['Stock_Value'].sum():,.0f}",
-                            f"₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}",
-                            f"₹{df[df['Status'] == 'Short Inventory']['Stock_Value'].sum():,.0f}"
-                        ]
-                    }
-                    pd.DataFrame(summary_data).to_excel(writer, sheet_name='Summary', index=False)
-                
-                excel_data = output.getvalue()
-                st.download_button(
-                    label="📈 Download Excel Report",
-                    data=excel_data,
-                    file_name=f"inventory_analysis_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    help="Download comprehensive Excel report with multiple sheets",
-                    use_container_width=True
-                )
-            except ImportError:
-                st.info("📋 Excel export requires openpyxl package")
         
         with col2:
-            st.markdown("##### 🎯 Filtered Exports")
-            
-            # Export options for different statuses
-            for status in ['Excess Inventory', 'Short Inventory', 'Within Norms']:
-                status_df = df[df['Status'] == status]
-                if not status_df.empty:
-                    status_csv = status_df.to_csv(index=False)
-                    st.download_button(
-                        label=f"📋 {status} ({len(status_df)} items)",
-                        data=status_csv,
-                        file_name=f"{status.lower().replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        help=f"Download only {status} items",
-                        use_container_width=True
-                    )
-            
-            # Vendor-specific exports
-            if 'Vendor' in df.columns:
-                st.markdown("**Vendor-wise Exports:**")
-                vendor_options = st.selectbox(
-                    "Select Vendor",
-                    options=['Select Vendor...'] + sorted(df['Vendor'].unique().tolist()),
-                    key="export_vendor_select"
-                )
-                
-                if vendor_options != 'Select Vendor...':
-                    vendor_df = df[df['Vendor'] == vendor_options]
-                    vendor_csv = vendor_df.to_csv(index=False)
-                    st.download_button(
-                        label=f"📋 Export {vendor_options} Data",
-                        data=vendor_csv,
-                        file_name=f"vendor_{vendor_options.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                        mime="text/csv",
-                        help=f"Download data for {vendor_options}",
-                        use_container_width=True
-                    )
+            # Export summary report
+            summary_report = self.generate_summary_report(df)
+            st.download_button(
+                label="📊 Download Summary",
+                data=summary_report,
+                file_name=f"inventory_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                help="Download executive summary report"
+            )
         
         with col3:
-            st.markdown("##### 📊 Report Formats")
-            
-            # Summary report
-            if st.button("📋 Generate Summary Report", use_container_width=True):
-                summary_report = self.generate_summary_report(df)
-                st.download_button(
-                    label="📄 Download Summary Report",
-                    data=summary_report,
-                    file_name=f"inventory_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    help="Download executive summary report",
-                    use_container_width=True
-                )
-            
-            # Action items report
-            if st.button("⚡ Generate Action Items", use_container_width=True):
-                action_items = self.generate_action_items_report(df)
-                st.download_button(
-                    label="📋 Download Action Items",
-                    data=action_items,
-                    file_name=f"action_items_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    help="Download prioritized action items",
-                    use_container_width=True
-                )
-            
-            # Custom report generator
-            st.markdown("**Custom Report:**")
-            include_charts = st.checkbox("Include Chart Descriptions", value=True)
-            include_vendor_analysis = st.checkbox("Include Vendor Analysis", value='Vendor' in df.columns)
-            
-            if st.button("📊 Generate Custom Report", use_container_width=True):
-                custom_report = self.generate_custom_report(df, include_charts, include_vendor_analysis)
-                st.download_button(
-                    label="📄 Download Custom Report",
-                    data=custom_report,
-                    file_name=f"custom_inventory_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    help="Download customized comprehensive report",
-                    use_container_width=True
-                )
-        
-        st.markdown("---")
-        
-        # Print-friendly view
-        st.markdown("#### 🖨️ Print-Friendly View")
-        
-        if st.button("📄 Generate Print View", key="generate_print_view"):
-            st.markdown("##### Inventory Analysis Report")
-            st.markdown(f"**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-            st.markdown(f"**Total Parts Analyzed:** {len(df)}")
-            
-            # Summary metrics
-            st.markdown("##### Summary Metrics")
-            summary_metrics = f"""
-            - **Within Norms:** {len(df[df['Status'] == 'Within Norms'])} parts ({(len(df[df['Status'] == 'Within Norms'])/len(df)*100):.1f}%)
-            - **Excess Inventory:** {len(df[df['Status'] == 'Excess Inventory'])} parts ({(len(df[df['Status'] == 'Excess Inventory'])/len(df)*100):.1f}%)
-            - **Short Inventory:** {len(df[df['Status'] == 'Short Inventory'])} parts ({(len(df[df['Status'] == 'Short Inventory'])/len(df)*100):.1f}%)
-            - **Total Stock Value:** ₹{df['Stock_Value'].sum():,.0f}
-            - **Excess Value:** ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
-            - **Short Value:** ₹{df[df['Status'] == 'Short Inventory']['Stock_Value'].sum():,.0f}
-            """
-            st.markdown(summary_metrics)
-            
-            # Top issues
-            st.markdown("##### Top Issues Requiring Attention")
-            
-            # Top excess items
-            excess_items = df[df['Status'] == 'Excess Inventory'].nlargest(5, 'Variance_%')
-            if not excess_items.empty:
-                st.markdown("**Highest Excess Items:**")
-                for _, row in excess_items.iterrows():
-                    st.markdown(f"- {row['Material']}: {row['Variance_%']:.1f}% excess (₹{row['Stock_Value']:,.0f})")
-            
-            # Top shortage items
-            short_items = df[df['Status'] == 'Short Inventory'].nsmallest(5, 'Variance_%')
-            if not short_items.empty:
-                st.markdown("**Most Critical Shortages:**")
-                for _, row in short_items.iterrows():
-                    st.markdown(f"- {row['Material']}: {abs(row['Variance_%']):.1f}% short (₹{row['Stock_Value']:,.0f})")
-            
-            # Vendor performance (if available)
-            if 'Vendor' in df.columns:
-                st.markdown("##### Vendor Performance Summary")
-                vendor_summary = df.groupby('Vendor').agg({
-                    'Material': 'count',
-                    'Status': lambda x: (x == 'Within Norms').sum()
-                }).reset_index()
-                vendor_summary['Performance_%'] = (vendor_summary['Status'] / vendor_summary['Material']) * 100
-                vendor_summary = vendor_summary.sort_values('Performance_%', ascending=False)
-                
-                st.markdown("**Top Performing Vendors:**")
-                for _, row in vendor_summary.head(5).iterrows():
-                    st.markdown(f"- {row['Vendor']}: {row['Performance_%']:.1f}% ({row['Status']}/{row['Material']} parts within norms)")
-        
-        # Email template
-        st.markdown("#### 📧 Email Template")
-        
-        if st.button("📨 Generate Email Template", key="generate_email_template"):
-            email_template = self.generate_email_template(df)
-            st.text_area(
-                "Email Template (Copy and paste into your email client)",
-                value=email_template,
-                height=300,
-                key="email_template_area"
-            )
-            
-            st.download_button(
-                label="📧 Download Email Template",
-                data=email_template,
-                file_name=f"email_template_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime="text/plain",
-                help="Download email template for sharing results"
-            )
-
+            # Email report option (placeholder)
+            if st.button("📧 Email Report", help="Send report via email (Feature coming soon)"):
+                st.info("📧 Email functionality will be available in the next update!")
+    
     def generate_summary_report(self, df):
         """Generate executive summary report"""
+        total_parts = len(df)
+        within_norms = len(df[df['Status'] == 'Within Norms'])
+        excess_inventory = len(df[df['Status'] == 'Excess Inventory'])
+        short_inventory = len(df[df['Status'] == 'Short Inventory'])
+        
+        total_value = df['Stock_Value'].sum()
+        excess_value = df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum()
+        short_value = df[df['Status'] == 'Short Inventory']['Stock_Value'].sum()
+        
         report = f"""
 INVENTORY ANALYSIS SUMMARY REPORT
-Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 {'='*50}
 
-OVERVIEW
---------
-Total Parts Analyzed: {len(df)}
-Within Norms: {len(df[df['Status'] == 'Within Norms'])} ({(len(df[df['Status'] == 'Within Norms'])/len(df)*100):.1f}%)
-Excess Inventory: {len(df[df['Status'] == 'Excess Inventory'])} ({(len(df[df['Status'] == 'Excess Inventory'])/len(df)*100):.1f}%)
-Short Inventory: {len(df[df['Status'] == 'Short Inventory'])} ({(len(df[df['Status'] == 'Short Inventory'])/len(df)*100):.1f}%)
+OVERVIEW:
+- Total Parts Analyzed: {total_parts}
+- Total Stock Value: ₹{total_value:,.0f}
 
-FINANCIAL IMPACT
----------------
-Total Stock Value: ₹{df['Stock_Value'].sum():,.0f}
-Excess Value: ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
-Short Value: ₹{df[df['Status'] == 'Short Inventory']['Stock_Value'].sum():,.0f}
-Potential Savings: ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
-
-KEY FINDINGS
------------
-Average Variance: {df['Variance_%'].mean():.1f}%
-Highest Excess: {df['Variance_%'].max():.1f}%
-Highest Shortage: {df['Variance_%'].min():.1f}%
-
-RECOMMENDATIONS
---------------
-1. Immediate attention required for {len(df[df['Status'] == 'Short Inventory'])} shortage items
-2. Optimization opportunity for {len(df[df['Status'] == 'Excess Inventory'])} excess items
-3. Review procurement strategies for high-variance items
-4. Implement regular monitoring for maintained performance
-
-        """
-        return report
-
-    def generate_action_items_report(self, df):
-        """Generate prioritized action items"""
-        action_items = f"""
-INVENTORY MANAGEMENT ACTION ITEMS
-Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-{'='*50}
-
-PRIORITY 1: CRITICAL SHORTAGES
------------------------------
-"""
-        
-        critical_short = df[df['Status'] == 'Short Inventory'].nsmallest(10, 'Variance_%')
-        for i, (_, row) in enumerate(critical_short.iterrows(), 1):
-            action_items += f"{i}. RESTOCK: {row['Material']} - {abs(row['Variance_%']):.1f}% shortage\n"
-        
-        action_items += f"""
-PRIORITY 2: EXCESS INVENTORY OPTIMIZATION
----------------------------------------
-"""
-        
-        high_excess = df[df['Status'] == 'Excess Inventory'].nlargest(10, 'Variance_%')
-        for i, (_, row) in enumerate(high_excess.iterrows(), 1):
-            action_items += f"{i}. OPTIMIZE: {row['Material']} - {row['Variance_%']:.1f}% excess (₹{row['Stock_Value']:,.0f})\n"
-        
-        if 'Vendor' in df.columns:
-            action_items += f"""
-PRIORITY 3: VENDOR PERFORMANCE REVIEW
------------------------------------
-"""
-            vendor_issues = df.groupby('Vendor').agg({
-                'Status': lambda x: (x != 'Within Norms').sum(),
-                'Material': 'count'
-            }).reset_index()
-            vendor_issues['Issue_Rate'] = (vendor_issues['Status'] / vendor_issues['Material']) * 100
-            vendor_issues = vendor_issues.sort_values('Issue_Rate', ascending=False).head(5)
-            
-            for i, (_, row) in enumerate(vendor_issues.iterrows(), 1):
-                action_items += f"{i}. REVIEW: {row['Vendor']} - {row['Issue_Rate']:.1f}% issue rate\n"
-        
-        return action_items
-
-    def generate_custom_report(self, df, include_charts, include_vendor_analysis):
-        """Generate comprehensive custom report"""
-        report = f"""
-COMPREHENSIVE INVENTORY ANALYSIS REPORT
-Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-{'='*60}
-
-EXECUTIVE SUMMARY
-================
-This report provides a comprehensive analysis of current inventory levels
-against established norms and identifies optimization opportunities.
-
-Total Parts Analyzed: {len(df)}
-Analysis Date: {datetime.now().strftime('%Y-%m-%d')}
-Tolerance Level: {st.session_state.get('current_tolerance', 30)}%
-
-INVENTORY STATUS BREAKDOWN
-=========================
-Within Norms: {len(df[df['Status'] == 'Within Norms'])} parts ({(len(df[df['Status'] == 'Within Norms'])/len(df)*100):.1f}%)
-Excess Inventory: {len(df[df['Status'] == 'Excess Inventory'])} parts ({(len(df[df['Status'] == 'Excess Inventory'])/len(df)*100):.1f}%)
-Short Inventory: {len(df[df['Status'] == 'Short Inventory'])} parts ({(len(df[df['Status'] == 'Short Inventory'])/len(df)*100):.1f}%)
-
-FINANCIAL ANALYSIS
-=================
-Total Stock Value: ₹{df['Stock_Value'].sum():,.0f}
-Well-Managed Value: ₹{df[df['Status'] == 'Within Norms']['Stock_Value'].sum():,.0f}
-Excess Value: ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
-Short Value: ₹{df[df['Status'] == 'Short Inventory']['Stock_Value'].sum():,.0f}
-
-VARIANCE ANALYSIS
-================
-Average Variance: {df['Variance_%'].mean():.1f}%
-Standard Deviation: {df['Variance_%'].std():.1f}%
-Highest Excess: {df['Variance_%'].max():.1f}%
-Highest Shortage: {df['Variance_%'].min():.1f}%
-        """
-        
-        if include_charts:
-            report += f"""
-CHART ANALYSIS INSIGHTS
-======================
-The pie chart distribution shows that {(len(df[df['Status'] == 'Within Norms'])/len(df)*100):.1f}% of parts are well-managed,
-indicating {"good" if (len(df[df['Status'] == 'Within Norms'])/len(df)*100) > 70 else "room for improvement in"} inventory control.
-
-The scatter plot analysis reveals correlation between current and required quantities,
-with most deviation occurring in {"high-value" if df['Stock_Value'].std() > df['Stock_Value'].mean() else "mixed-value"} items.
-        """
-        
-        if include_vendor_analysis and 'Vendor' in df.columns:
-            vendor_summary = df.groupby('Vendor').agg({
-                'Material': 'count',
-                'Status': lambda x: (x == 'Within Norms').sum(),
-                'Stock_Value': 'sum'
-            }).reset_index()
-            vendor_summary['Performance_%'] = (vendor_summary['Status'] / vendor_summary['Material']) * 100
-            
-            report += f"""
-VENDOR PERFORMANCE ANALYSIS
-===========================
-Total Vendors: {len(vendor_summary)}
-Best Performing Vendor: {vendor_summary.loc[vendor_summary['Performance_%'].idxmax(), 'Vendor']} ({vendor_summary['Performance_%'].max():.1f}%)
-Vendor Requiring Attention: {vendor_summary.loc[vendor_summary['Performance_%'].idxmin(), 'Vendor']} ({vendor_summary['Performance_%'].min():.1f}%)
-
-Top 5 Vendors by Performance:
-"""
-            for i, (_, row) in enumerate(vendor_summary.nlargest(5, 'Performance_%').iterrows(), 1):
-                report += f"{i}. {row['Vendor']}: {row['Performance_%']:.1f}% ({row['Status']}/{row['Material']} parts)\n"
-        
-        report += f"""
-RECOMMENDATIONS AND NEXT STEPS
-==============================
-1. Immediate Actions:
-   - Address {len(df[df['Status'] == 'Short Inventory'])} shortage items
-   - Review {len(df[df['Status'] == 'Excess Inventory'])} excess inventory items
-   
-2. Process Improvements:
-   - Implement automated reorder points
-   - Review procurement cycles
-   - Establish regular monitoring cadence
-   
-3. Strategic Initiatives:
-   - Optimize safety stock levels
-   - Implement demand forecasting
-   - Consider vendor consolidation opportunities
-
-REPORT END
-==========
-        """
-        
-        return report
-
-    def generate_email_template(self, df):
-        """Generate email template for sharing results"""
-        email_template = f"""Subject: Inventory Analysis Results - {datetime.now().strftime('%Y-%m-%d')}
-
-Dear Team,
-
-Please find below the summary of our inventory analysis conducted on {datetime.now().strftime('%Y-%m-%d')}:
-
-KEY METRICS:
-- Total Parts Analyzed: {len(df)}
-- Within Norms: {len(df[df['Status'] == 'Within Norms'])} ({(len(df[df['Status'] == 'Within Norms'])/len(df)*100):.1f}%)
-- Excess Inventory: {len(df[df['Status'] == 'Excess Inventory'])} ({(len(df[df['Status'] == 'Excess Inventory'])/len(df)*100):.1f}%)
-- Short Inventory: {len(df[df['Status'] == 'Short Inventory'])} ({(len(df[df['Status'] == 'Short Inventory'])/len(df)*100):.1f}%)
+INVENTORY STATUS:
+- Within Norms: {within_norms} parts ({(within_norms/total_parts)*100:.1f}%)
+- Excess Inventory: {excess_inventory} parts ({(excess_inventory/total_parts)*100:.1f}%)
+- Short Inventory: {short_inventory} parts ({(short_inventory/total_parts)*100:.1f}%)
 
 FINANCIAL IMPACT:
-- Total Stock Value: ₹{df['Stock_Value'].sum():,.0f}
-- Excess Value: ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
-- Potential Optimization: ₹{df[df['Status'] == 'Excess Inventory']['Stock_Value'].sum():,.0f}
+- Excess Stock Value: ₹{excess_value:,.0f} ({(excess_value/total_value)*100:.1f}% of total)
+- Short Stock Value: ₹{short_value:,.0f} ({(short_value/total_value)*100:.1f}% of total)
 
-IMMEDIATE ACTIONS REQUIRED:
-1. Restock {len(df[df['Status'] == 'Short Inventory'])} shortage items
-2. Review {len(df[df['Status'] == 'Excess Inventory'])} excess inventory items
-3. Implement monitoring for high-variance parts
-
-Please refer to the detailed analysis report for specific part numbers and vendor information.
-
-Best regards,
-[Your Name]
-[Your Title]
-[Date: {datetime.now().strftime('%Y-%m-%d')}]
-        """
+TOP ISSUES:
+"""
         
-        return email_template
-
-    def generate_alerts_and_notifications(self, df):
-        """Generate alerts for critical inventory situations"""
-        alerts = []
+        # Add top excess items
+        if excess_inventory > 0:
+            top_excess = df[df['Status'] == 'Excess Inventory'].nlargest(5, 'Variance_%')
+            report += "\nTop 5 Excess Items:\n"
+            for _, row in top_excess.iterrows():
+                report += f"- {row['Material']}: {row['Variance_%']:.1f}% over norm (₹{row['Stock_Value']:,.0f})\n"
         
-        # Critical shortage alerts
-        critical_shortage = df[df['Variance_%'] < -50]  # More than 50% shortage
-        if not critical_shortage.empty:
-            alerts.append({
-                'type': 'critical',
-                'title': 'Critical Shortage Alert',
-                'message': f"{len(critical_shortage)} items have critical shortage (>50%)",
-                'items': critical_shortage['Material'].tolist()
-            })
+        # Add top shortage items
+        if short_inventory > 0:
+            top_short = df[df['Status'] == 'Short Inventory'].nsmallest(5, 'Variance_%')
+            report += "\nTop 5 Short Items:\n"
+            for _, row in top_short.iterrows():
+                report += f"- {row['Material']}: {abs(row['Variance_%']):.1f}% under norm (₹{row['Stock_Value']:,.0f})\n"
         
-        # High excess alerts
-        high_excess = df[df['Variance_%'] > 100]  # More than 100% excess
-        if not high_excess.empty:
-            alerts.append({
-                'type': 'warning',
-                'title': 'High Excess Alert',
-                'message': f"{len(high_excess)} items have high excess inventory (>100%)",
-                'items': high_excess['Material'].tolist()
-            })
+        report += f"\n{'='*50}\nReport generated by Inventory Management System"
         
-        # High value variance alerts
-        if 'Stock_Value' in df.columns:
-            high_value_variance = df[(abs(df['Variance_%']) > 30) & (df['Stock_Value'] > df['Stock_Value'].quantile(0.8))]
-            if not high_value_variance.empty:
-                alerts.append({
-                    'type': 'info',
-                    'title': 'High Value Variance Alert',
-                    'message': f"{len(high_value_variance)} high-value items have significant variance",
-                    'items': high_value_variance['Material'].tolist()
-                })
-        
-        return alerts
-
-    def display_alerts(self, df):
-        """Display alerts in the Streamlit interface"""
-        alerts = self.generate_alerts_and_notifications(df)
-        
-        if alerts:
-            st.markdown("#### 🚨 Alerts & Notifications")
-            
-            for alert in alerts:
-                if alert['type'] == 'critical':
-                    st.error(f"**{alert['title']}:** {alert['message']}")
-                elif alert['type'] == 'warning':
-                    st.warning(f"**{alert['title']}:** {alert['message']}")
-                else:
-                    st.info(f"**{alert['title']}:** {alert['message']}")
-                
-                # Show details in expander
-                with st.expander(f"View {len(alert['items'])} affected items"):
-                    for item in alert['items'][:10]:  # Show first 10 items
-                        st.write(f"• {item}")
-                    if len(alert['items']) > 10:
-                        st.write(f"... and {len(alert['items']) - 10} more items")
-
-    def generate_forecast_analysis(self, df):
-        """Generate simple forecast analysis based on variance patterns"""
-        st.markdown("#### 📈 Forecast Analysis")
-        
-        # Calculate trend indicators
-        high_variance_items = df[abs(df['Variance_%']) > 50]
-        stable_items = df[abs(df['Variance_%']) <= 20]
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("##### 📊 Stability Analysis")
-            st.metric("Stable Items", len(stable_items), f"{len(stable_items)/len(df)*100:.1f}%")
-            st.metric("High Variance Items", len(high_variance_items), f"{len(high_variance_items)/len(df)*100:.1f}%")
-            
-            # Stability score
-            stability_score = len(stable_items) / len(df) * 100
-            if stability_score >= 80:
-                st.success(f"🎯 Good stability: {stability_score:.1f}%")
-            elif stability_score >= 60:
-                st.warning(f"⚠️ Moderate stability: {stability_score:.1f}%")
-            else:
-                st.error(f"🚨 Poor stability: {stability_score:.1f}%")
-        
-        with col2:
-            st.markdown("##### 🔮 Forecast Indicators")
-            
-            # Trend analysis
-            excess_trend = len(df[df['Status'] == 'Excess Inventory']) / len(df) * 100
-            shortage_trend = len(df[df['Status'] == 'Short Inventory']) / len(df) * 100
-            
-            st.write(f"**Excess Trend:** {excess_trend:.1f}%")
-            st.write(f"**Shortage Trend:** {shortage_trend:.1f}%")
-            
-            if excess_trend > shortage_trend:
-                st.info("📈 Trend indicates over-ordering pattern")
-            elif shortage_trend > excess_trend:
-                st.info("📉 Trend indicates under-ordering pattern")
-            else:
-                st.info("⚖️ Balanced ordering pattern")
-        
-        # Risk assessment
-        st.markdown("##### ⚠️ Risk Assessment")
-        
-        risk_factors = []
-        if len(df[df['Variance_%'] < -30]) > len(df) * 0.1:
-            risk_factors.append("High shortage risk (>10% items severely short)")
-        
-        if len(df[df['Variance_%'] > 50]) > len(df) * 0.15:
-            risk_factors.append("High excess risk (>15% items with high excess)")
-        
-        if 'Stock_Value' in df.columns:
-            high_value_at_risk = df[(abs(df['Variance_%']) > 30) & (df['Stock_Value'] > df['Stock_Value'].quantile(0.8))]
-            if len(high_value_at_risk) > 0:
-                risk_factors.append(f"High-value items at risk ({len(high_value_at_risk)} items)")
-        
-        if risk_factors:
-            for risk in risk_factors:
-                st.warning(f"⚠️ {risk}")
-        else:
-            st.success("✅ Low risk profile - inventory appears well-managed")
-
-    def export_dashboard_config(self, df):
-        """Export dashboard configuration for future use"""
-        st.markdown("#### ⚙️ Dashboard Configuration")
-        
-        config = {
-            'analysis_date': datetime.now().isoformat(),
-            'total_parts': len(df),
-            'tolerance_level': st.session_state.get('current_tolerance', 30),
-            'columns_used': df.columns.tolist(),
-            'status_distribution': df['Status'].value_counts().to_dict(),
-            'summary_stats': {
-                'total_value': float(df['Stock_Value'].sum()) if 'Stock_Value' in df.columns else 0,
-                'avg_variance': float(df['Variance_%'].mean()),
-                'max_variance': float(df['Variance_%'].max()),
-                'min_variance': float(df['Variance_%'].min())
-            }
-        }
-        
-        import json
-        config_json = json.dumps(config, indent=2)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.download_button(
-                label="💾 Download Configuration",
-                data=config_json,
-                file_name=f"inventory_config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                mime="application/json",
-                help="Save current analysis configuration"
-            )
-        
-        with col2:
-            if st.button("📋 Copy Configuration"):
-                st.code(config_json, language='json')
-
-def main():
-    """Main function to run the Streamlit app"""
-    st.set_page_config(
-        page_title="Inventory Analysis Dashboard",
-        page_icon="📊",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
+        return report
     
-    # Initialize the analyzer
-    analyzer = InventoryAnalyzer()
-    
-    # Custom CSS for better styling
-    st.markdown("""
-    <style>
-    .metric-container {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
-    }
-    .status-excess { background-color: #ffebee; }
-    .status-short { background-color: #fff3e0; }
-    .status-normal { background-color: #e8f5e8; }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Header
-    st.title("📊 Inventory Analysis Dashboard")
-    st.markdown("Analyze inventory levels against norms and identify optimization opportunities")
-    
-    # Sidebar
-    st.sidebar.title("🔧 Configuration")
-    
-    # File upload
-    uploaded_file = st.sidebar.file_uploader(
-        "📁 Upload CSV File",
-        type=['csv'],
-        help="Upload your inventory data in CSV format"
-    )
-    
-    if uploaded_file is not None:
-        try:
-            # Load and analyze data
-            df = analyzer.load_data(uploaded_file)
-            
-            if df is not None:
-                # Display file info
-                st.sidebar.success(f"✅ File loaded: {len(df)} records")
-                
-                # Configure analysis parameters
-                tolerance = st.sidebar.slider(
-                    "📊 Tolerance Level (%)",
-                    min_value=10,
-                    max_value=100,
-                    value=30,
-                    step=5,
-                    help="Acceptable variance percentage"
-                )
-                st.session_state['current_tolerance'] = tolerance
-                
-                # Perform analysis
-                analyzed_df = analyzer.analyze_inventory(df, tolerance)
-                
-                # Display results
-                analyzer.display_summary_metrics(analyzed_df)
-                analyzer.display_detailed_analysis(analyzed_df)
-                analyzer.display_alerts(analyzed_df)
-                analyzer.generate_forecast_analysis(analyzed_df)
-                analyzer.display_export_options(analyzed_df)
-                analyzer.export_dashboard_config(analyzed_df)
-                
-        except Exception as e:
-            st.error(f"❌ Error processing file: {str(e)}")
-            st.info("Please check your file format and try again.")
-    
-    else:
-        # Show sample data format
-        st.info("👆 Please upload a CSV file to begin analysis")
+    def run(self):
+        """Main application runner"""
+        # Page header
+        st.title("📊 Inventory Management System")
+        st.markdown("---")
         
-        st.markdown("#### 📋 Expected CSV Format")
-        sample_data = {
-            'Material': ['PART001', 'PART002', 'PART003'],
-            'Current_Stock': [100, 50, 200],
-            'Required_Stock': [80, 75, 150],
-            'Unit_Price': [10.5, 25.0, 15.75],
-            'Vendor': ['Supplier A', 'Supplier B', 'Supplier A']
-        }
-        st.dataframe(pd.DataFrame(sample_data))
+        # Authentication
+        self.authenticate_user()
         
-        st.markdown("""
-        **Required Columns:**
-        - `Material`: Part/item identifier
-        - `Current_Stock`: Current inventory quantity
-        - `Required_Stock`: Target/norm inventory quantity
+        if st.session_state.user_role is None:
+            st.info("👋 Please select your role and authenticate to access the system.")
+            st.markdown("""
+            ### System Features:
+            - **Admin Dashboard**: Load and manage PFEP master data
+            - **User Interface**: Upload inventory data and view analysis
+            - **Real-time Analysis**: Compare current inventory with PFEP requirements
+            - **Interactive Visualizations**: Charts and graphs for better insights
+            - **Export Capabilities**: Download results in multiple formats
+            """)
+            return
         
-        **Optional Columns:**
-        - `Unit_Price`: Price per unit (for value calculations)
-        - `Vendor`: Supplier information
-        - Additional columns will be preserved in the analysis
-        """)
+        # Main application logic based on user role
+        if st.session_state.user_role == "Admin":
+            self.admin_data_management()
+        else:  # User role
+            self.user_inventory_upload()
 
+# Application entry point
 if __name__ == "__main__":
-    main()
+    try:
+        app = InventoryManagementSystem()
+        app.run()
+    except Exception as e:
+        st.error(f"Application Error: {str(e)}")
+        logger.error(f"Application crashed: {str(e)}", exc_info=True)
