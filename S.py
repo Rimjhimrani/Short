@@ -875,7 +875,6 @@ class InventoryManagementSystem:
         with tab1:
             st.header("📊 Graphical Analysis")
             from collections import Counter
-            import pandas as pd
             # Ensure processed_data is a list of dicts from the analysis DataFrame
             df_processed = pd.DataFrame(processed_data)
 
