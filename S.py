@@ -879,6 +879,7 @@ class InventoryManagementSystem:
             if not processed_data:
                 st.error("No analysis data available. Please upload inventory and perform analysis first.")
             else:
+                analyzer = InventoryAnalyzer()
                 from collections import Counter
             
             # Ensure processed_data is a list of dicts from the analysis DataFrame
