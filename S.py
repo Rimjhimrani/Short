@@ -861,7 +861,7 @@ class InventoryManagementSystem:
     
     def display_analysis_results(self):
         """Display comprehensive inventory analysis results"""
-        processed_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+        analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
         
         if not analysis_data:
             st.error("❌ No analysis results available")
@@ -874,7 +874,13 @@ class InventoryManagementSystem:
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
         with tab1:
             st.header("📊 Graphical Analysis")
-            from collections import Counter
+            
+            processed_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+            if not processed_data:
+                st.error("No analysis data available. Please upload inventory and perform analysis first.")
+            else:
+                from collections import Counter
+            
             # Ensure processed_data is a list of dicts from the analysis DataFrame
             df_processed = pd.DataFrame(processed_data)
 
