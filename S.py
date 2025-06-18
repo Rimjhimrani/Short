@@ -770,7 +770,9 @@ class InventoryManagementSystem:
         
         if inventory_locked:
             st.info("🔒 Inventory data is locked. Analysis results are available below.")
-            self.display_analysis_results()
+            analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+            if analysis_data:
+                self.display_analysis_results()
             return
         
         # Inventory upload section
@@ -1499,7 +1501,7 @@ TOP ISSUES:
     def run(self):
         """Main application runner"""
         # Page header
-        st.title("📊 Inventory Management System")
+        st.title("📊 Inventory Analyzer")
         st.markdown("---")
         
         # Authentication
