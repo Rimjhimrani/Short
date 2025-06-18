@@ -861,7 +861,7 @@ class InventoryManagementSystem:
     
     def display_analysis_results(self):
         """Display comprehensive inventory analysis results"""
-        analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+        processed_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
         
         if not analysis_data:
             st.error("❌ No analysis results available")
