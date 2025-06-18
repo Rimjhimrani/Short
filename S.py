@@ -1343,7 +1343,7 @@ class InventoryManagementSystem:
                     "Filter by Vendor",
                     options=df['Vendor'].unique(),
                     default=df['Vendor'].unique(),
-                    key="vendor_filter"
+                    key="vendor_filter_tac2"
                 )
             else:
                 vendor_filter = []
@@ -1355,7 +1355,7 @@ class InventoryManagementSystem:
                 max_value=500.0,
                 value=0.0,
                 step=5.0,
-                key="variance_threshold"
+                key="variance_threshold_tac3"
             )
         
         # Apply filters
