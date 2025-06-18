@@ -236,8 +236,7 @@ class InventoryManagementSystem:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
         
-        def create_top_parts_chart(self, data, status_type, color, key):
-
+    def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
         top_items = [item for item in data if item['Status'] == status_type]
         top_items = sorted(top_items, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
