@@ -1333,7 +1333,7 @@ class InventoryManagementSystem:
                 "Filter by Status",
                 options=df['Status'].unique(),
                 default=df['Status'].unique(),
-                key="status_filter_table"
+                key="status_filter_tab1_table"
             )
         
         with col2:
