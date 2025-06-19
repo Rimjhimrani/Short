@@ -1231,45 +1231,46 @@ class InventoryManagementSystem:
             else:
                 analyzer = InventoryAnalyzer()
                 df = pd.DataFrame(analysis_data)
+                # ✅ Filter options
                 vendors = sorted(df['Vendor'].dropna().unique().tolist())
-                # ✅ Filter Controls
+                statuses = sorted(df['Status'].dropna().unique().tolist())
+
                 st.markdown("### 🔍 Filter Options")
                 col1, col2 = st.columns(2)
+
                 with col1:
                     status_filter = st.selectbox(
                         "Filter by Status",
-                        options=['All'] + list(analyzer.status_colors.keys()),
-                        key=f"vendor_tab3_status_filter_{uuid.uuid4()}"
+                        options=['All'] + statuses,
+                        index=0,
+                        key="vendor_tab3_status"
                     )
                 with col2:
                     vendor_filter = st.selectbox(
-                         "Filter by Vendor",
+                        "Filter by Vendor",
                         options=['All'] + vendors,
-                        key=f"vendor_tab3_vendor_filter_{uuid.uuid4()}"
+                        index=0,
+                        key="vendor_tab3_vendor"
                     )
-                    
-                # ✅ Apply Filters to DataFrame
+                # ✅ Apply filters
                 filtered_df = df.copy()
                 if status_filter != 'All':
                     filtered_df = filtered_df[filtered_df['Status'] == status_filter]
                 if vendor_filter != 'All':
                     filtered_df = filtered_df[filtered_df['Vendor'] == vendor_filter]
+                # ✅ Show filtered part-level table
                 if not filtered_df.empty:
                     df_display = filtered_df.copy()
-                    # Format and clean up display
                     df_display['Variance_%'] = df_display['Variance_%'].round(2)
                     df_display['Variance_Value'] = df_display['Variance_Value'].round(2)
                     df_display['Stock_Value'] = df_display['Stock_Value'].apply(lambda x: f"₹{x:,}")
-
                     column_order = ['Material', 'Description', 'Vendor', 'QTY', 'RM IN QTY',
                             'Variance_%', 'Variance_Value', 'Status', 'Stock_Value']
                     df_display = df_display[column_order]
                     st.dataframe(df_display, use_container_width=True, hide_index=True)
                     st.info(f"Showing {len(df_display)} parts")
-                    # ✅ Bar chart: total value by vendor
+                    # ✅ Chart: Inventory Value by Vendor
                     st.markdown("### 📊 Inventory Value by Vendor")
-
-                    # Prepare Stock_Value for chart
                     chart_df = filtered_df.copy()
                     chart_df['Stock_Value'] = pd.to_numeric(chart_df['Stock_Value'], errors='coerce')
                     vendor_totals = chart_df.groupby('Vendor')['Stock_Value'].sum().reset_index()
@@ -1278,16 +1279,15 @@ class InventoryManagementSystem:
                             vendor_totals,
                             x='Vendor',
                             y='Stock_Value',
-                            title="Total Stock Value per Vendor (Filtered)",
+                            title="Total Stock Value per Vendor",
                             labels={'Stock_Value': 'Stock Value (₹)'},
                             template=st.session_state.user_preferences.get('chart_theme', 'plotly')
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning("No stock value data available for chart.")
+                        st.warning("No data available for chart.")
                 else:
                     st.warning("No data matches the selected filters.")
-
             with tab4:
                 self.display_export_options(df)
 
