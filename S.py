@@ -646,20 +646,25 @@ class InventoryManagementSystem:
             if pfep_data:
                 self.display_pfep_data_preview(pfep_data)
             return
-        
-        # PFEP Data Loading Options
+        # Tolerance Setting for Admin
+        # ------------------------------
+        st.subheader("📐 Set Analysis Tolerance (Admin Only)")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            tolerance = st.selectbox(
+                "Tolerance Zone (+/-)",
+                options=[10, 20, 30, 40, 50],
+                index=[10, 20, 30, 40, 50].index(st.session_state.get("admin_tolerance", 30)),
+                format_func=lambda x: f"{x}%",
+                key="admin_tolerance_select"
+            )
+        with col2:
+            st.write("")  # spacing
+            if st.button("🔐 Lock Tolerance", key="lock_tolerance_btn", type="primary"):
+                st.session_state.admin_tolerance = tolerance
+                st.success(f"✅ Tolerance locked at ±{tolerance}% for all users")
+                # PFEP Data Loading Options
         st.subheader("📋 Load PFEP Master Data")
-        # ✅ ADD TOLERANCE SETTING HERE
-        st.subheader("📐 Set Analysis Tolerance (%)")
-        st.session_state.admin_tolerance = st.slider(
-            "Select Tolerance",
-            min_value=0,
-            max_value=100,
-            value=st.session_state.get("admin_tolerance", 30),
-            step=5,
-            help="This will control what qualifies as Short/Excess/Within Norms."
-        )
-        st.success(f"🔒 Current tolerance is set to ±{st.session_state.admin_tolerance}%")
  
         data_source = st.radio(
             "Choose data source:",
