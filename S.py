@@ -1235,17 +1235,15 @@ class InventoryManagementSystem:
                 st.markdown("### 🔍 Filter Options")
                 col1, col2 = st.columns(2)
                 with col1:
-                    status_filter = st.multiselect(
+                    status_filter = st.selectbox(
                         "Filter by Status",
-                        options=df['Status'].unique(),
-                        default=df['Status'].unique(),
+                        options=['All'] + list(analyzer.status_colors.keys()),
                         key=f"vendor_tab3_status_filter_{uuid.uuid4()}"
                     )
                 with col2:
-                    vendor_filter = st.multiselect(
-                        "Filter by Vendor",
-                        options=df['Vendor'].unique(),
-                        default=df['Vendor'].unique(),
+                    vendor_filter = st.selectbox(
+                         "Filter by Vendor",
+                        options=['All'] + vendors,
                         key=f"vendor_tab3_vendor_filter_{uuid.uuid4()}"
                     )
                     
