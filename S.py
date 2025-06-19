@@ -571,7 +571,7 @@ class InventoryManagementSystem:
                 'Part_No': str(row[mapped_columns['part_no']]).strip(),
                 'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
                 'Current_QTY': self.safe_float_convert(row[mapped_columns['current_qty']]),
-                'Stock_Value': self.safe_int_convert(row.get(mapped_columns.get('stock_value', ''), 0))
+                'Stock_Value': self.safe_float_convert(row.get(mapped_columns.get('stock_value', ''), 0))
             }
             standardized_data.append(item)
         
