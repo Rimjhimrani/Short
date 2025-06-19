@@ -1233,7 +1233,7 @@ class InventoryManagementSystem:
                 df = pd.DataFrame(analysis_data)
                 # ✅ Filter Controls
                 st.markdown("### 🔍 Filter Options")
-                col1, col2, col3 = st.columns(3)
+                col1, col2 = st.columns(2)
                 with col1:
                     status_filter = st.multiselect(
                         "Filter by Status",
@@ -1248,15 +1248,7 @@ class InventoryManagementSystem:
                         default=df['Vendor'].unique(),
                         key=f"vendor_tab3_vendor_filter_{uuid.uuid4()}"
                     )
-                with col3:
-                    variance_threshold = st.number_input(
-                        "Min Variance % (absolute)",
-                        min_value=0.0,
-                        max_value=500.0,
-                        value=0.0,
-                        step=5.0,
-                        key=f"vendor_tab3_variance_filter_{uuid.uuid4()}"
-                    )
+                    
                 # ✅ Apply Filter
                 filtered_df = df[df['Status'].isin(status_filter)]
                 filtered_df = filtered_df[filtered_df['Vendor'].isin(vendor_filter)]
