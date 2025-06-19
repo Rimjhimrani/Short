@@ -1263,7 +1263,7 @@ class InventoryManagementSystem:
                         vendor_df,
                         path=['Vendor'],
                         values='total_value',
-                        title="Total Inventory Value by Vendor (Filtered)",
+                        title="Total Inventory Value by Vendor",
                         template=st.session_state.user_preferences.get('chart_theme', 'plotly')
                     )
                     st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst_filtered")
