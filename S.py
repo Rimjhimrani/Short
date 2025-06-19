@@ -181,6 +181,38 @@ class InventoryAnalyzer:
             }
             results.append(result)
         return results
+    def get_vendor_summary(self, processed_data):
+        """Get summary data by vendor"""
+        vendor_summary = {}
+        for item in processed_data:
+            vendor = item['Vendor']
+            if vendor not in vendor_summary:
+                vendor_summary[vendor] = {
+                    'total_parts': 0,
+                    'total_qty': 0,
+                    'total_rm': 0,
+                    'total_value': 0,
+                    'short_parts': 0,
+                    'excess_parts': 0,
+                    'normal_parts': 0,
+                    'short_value': 0,
+                    'excess_value': 0,
+                    'normal_value': 0
+                }
+            vendor_summary[vendor]['total_parts'] += 1
+            vendor_summary[vendor]['total_qty'] += item['QTY']
+            vendor_summary[vendor]['total_rm'] += item['RM IN QTY']
+            vendor_summary[vendor]['total_value'] += item['Stock_Value']
+            if item['Status'] == 'Short Inventory':
+                vendor_summary[vendor]['short_parts'] += 1
+                vendor_summary[vendor]['short_value'] += item['Stock_Value']
+            elif item['Status'] == 'Excess Inventory':
+                vendor_summary[vendor]['excess_parts'] += 1
+                vendor_summary[vendor]['excess_value'] += item['Stock_Value']
+            else:
+                vendor_summary[vendor]['normal_parts'] += 1
+                vendor_summary[vendor]['normal_value'] += item['Stock_Value']
+        return vendor_summary
 
 class InventoryManagementSystem:
     """Main application class"""
@@ -236,38 +268,6 @@ class InventoryManagementSystem:
         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
-    def get_vendor_summary(self, processed_data):
-        """Get summary data by vendor"""
-        vendor_summary = {}
-        for item in processed_data:
-            vendor = item['Vendor']
-            if vendor not in vendor_summary:
-                vendor_summary[vendor] = {
-                    'total_parts': 0,
-                    'total_qty': 0,
-                    'total_rm': 0,
-                    'total_value': 0,
-                    'short_parts': 0,
-                    'excess_parts': 0,
-                    'normal_parts': 0,
-                    'short_value': 0,
-                    'excess_value': 0,
-                    'normal_value': 0
-                }
-            vendor_summary[vendor]['total_parts'] += 1
-            vendor_summary[vendor]['total_qty'] += item['QTY']
-            vendor_summary[vendor]['total_rm'] += item['RM IN QTY']
-            vendor_summary[vendor]['total_value'] += item['Stock_Value']
-            if item['Status'] == 'Short Inventory':
-                vendor_summary[vendor]['short_parts'] += 1
-                vendor_summary[vendor]['short_value'] += item['Stock_Value']
-            elif item['Status'] == 'Excess Inventory':
-                vendor_summary[vendor]['excess_parts'] += 1
-                vendor_summary[vendor]['excess_value'] += item['Stock_Value']
-            else:
-                vendor_summary[vendor]['normal_parts'] += 1
-                vendor_summary[vendor]['normal_value'] += item['Stock_Value']
-        return vendor_summary
         
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
