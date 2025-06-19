@@ -239,7 +239,6 @@ class InventoryManagementSystem:
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
         vendor_summary = {}
-        
         for item in processed_data:
             vendor = item['Vendor']
             if vendor not in vendor_summary:
@@ -255,12 +254,10 @@ class InventoryManagementSystem:
                     'excess_value': 0,
                     'normal_value': 0
                 }
-            
             vendor_summary[vendor]['total_parts'] += 1
             vendor_summary[vendor]['total_qty'] += item['QTY']
             vendor_summary[vendor]['total_rm'] += item['RM IN QTY']
             vendor_summary[vendor]['total_value'] += item['Stock_Value']
-            
             if item['Status'] == 'Short Inventory':
                 vendor_summary[vendor]['short_parts'] += 1
                 vendor_summary[vendor]['short_value'] += item['Stock_Value']
@@ -270,7 +267,6 @@ class InventoryManagementSystem:
             else:
                 vendor_summary[vendor]['normal_parts'] += 1
                 vendor_summary[vendor]['normal_value'] += item['Stock_Value']
-        
         return vendor_summary
         
     def create_top_parts_chart(self, data, status_type, color, key):
