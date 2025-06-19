@@ -134,6 +134,8 @@ class InventoryAnalyzer:
         
     def analyze_inventory(self, pfep_data, current_inventory, tolerance=30):
         """Analyze ONLY inventory parts that exist in PFEP"""
+        if tolerance is None:
+            tolerance = st.session_state.get("admin_tolerance", 30)  # default fallback
         results = []
         # Create lookup dictionaries
         pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
@@ -647,7 +649,18 @@ class InventoryManagementSystem:
         
         # PFEP Data Loading Options
         st.subheader("📋 Load PFEP Master Data")
-        
+        # ✅ ADD TOLERANCE SETTING HERE
+        st.subheader("📐 Set Analysis Tolerance (%)")
+        st.session_state.admin_tolerance = st.slider(
+            "Select Tolerance",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.get("admin_tolerance", 30),
+            step=5,
+            help="This will control what qualifies as Short/Excess/Within Norms."
+        )
+        st.success(f"🔒 Current tolerance is set to ±{st.session_state.admin_tolerance}%")
+ 
         data_source = st.radio(
             "Choose data source:",
             ["Upload Excel/CSV File", "Use Sample Data"],
