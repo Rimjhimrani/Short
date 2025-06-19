@@ -648,16 +648,27 @@ class InventoryManagementSystem:
             return
         # Tolerance Setting for Admin
         st.subheader("📐 Set Analysis Tolerance (Admin Only)")
-        # Initialize once
+        # Initialize admin_tolerance if not exists
         if "admin_tolerance" not in st.session_state:
             st.session_state.admin_tolerance = 30
-            # Selectbox: directly bind to admin_tolerance
-            st.session_state.admin_tolerance = st.selectbox(
-                "Tolerance Zone (+/-)",
-                options=[10, 20, 30, 40, 50],
-                index=[10, 20, 30, 40, 50].index(st.session_state.admin_tolerance),
-                format_func=lambda x: f"{x}%",
-            )
+        # Create selectbox with proper callback
+        new_tolerance = st.selectbox(
+            "Tolerance Zone (+/-)",
+            options=[10, 20, 30, 40, 50],
+            index=[10, 20, 30, 40, 50].index(st.session_state.admin_tolerance),
+            format_func=lambda x: f"{x}%",
+            key="tolerance_selector"
+        )
+        # Update tolerance if changed
+        if new_tolerance != st.session_state.admin_tolerance:
+            st.session_state.admin_tolerance = new_tolerance
+            # Clear analysis results to force re-analysis with new tolerance
+            st.session_state.persistent_analysis_results = None
+            st.session_state.persistent_inventory_locked = False
+            st.success(f"✅ Tolerance updated to ±{new_tolerance}%. Users need to re-analyze inventory.")
+            st.rerun()
+        # Display current tolerance
+        st.info(f"Current tolerance: ±{st.session_state.admin_tolerance}%")
  
         data_source = st.radio(
             "Choose data source:",
@@ -940,7 +951,9 @@ class InventoryManagementSystem:
         
         df = pd.DataFrame(analysis_data)
         
-        st.info(f"🔒 Tolerance is locked at ±{st.session_state.get('admin_tolerance', 30)}% by Admin")
+        # Show current tolerance being used (FIXED)
+        current_tolerance = st.session_state.get('admin_tolerance', 30)
+        st.info(f"🔒 Analysis performed with tolerance: ±{current_tolerance}% (set by Admin)")
 
         # Summary Dashboard
         st.header("📈 Summary Dashboard")
