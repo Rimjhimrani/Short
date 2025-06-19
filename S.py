@@ -647,18 +647,17 @@ class InventoryManagementSystem:
                 self.display_pfep_data_preview(pfep_data)
             return
         # Tolerance Setting for Admin
-        # ------------------------------
         st.subheader("📐 Set Analysis Tolerance (Admin Only)")
-        # Initialize if not set
-        # Set directly via session state binding
-        st.selectbox(
-            "Tolerance Zone (+/-)",
-            options=[10, 20, 30, 40, 50],
-            index=[10, 20, 30, 40, 50].index(st.session_state.get("admin_tolerance", 30)),
-            format_func=lambda x: f"{x}%",
-            key="admin_tolerance"  # ✅ THIS is the key used by your entire app
-        )
-        st.success(f"✅ Tolerance is set to ±{st.session_state.admin_tolerance}% (applied instantly)")
+        # Initialize once
+        if "admin_tolerance" not in st.session_state:
+            st.session_state.admin_tolerance = 30
+            # Selectbox: directly bind to admin_tolerance
+            st.session_state.admin_tolerance = st.selectbox(
+                "Tolerance Zone (+/-)",
+                options=[10, 20, 30, 40, 50],
+                index=[10, 20, 30, 40, 50].index(st.session_state.admin_tolerance),
+                format_func=lambda x: f"{x}%",
+            )
  
         data_source = st.radio(
             "Choose data source:",
