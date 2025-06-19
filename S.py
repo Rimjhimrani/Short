@@ -1009,6 +1009,7 @@ class InventoryManagementSystem:
                     analyzer = InventoryAnalyzer()  # Make sure this is initialize
                     from collections import Counter
                     # Ensure processed_data is a list of dicts from the analysis DataFram
+                    
                     df_processed = pd.DataFrame(processed_data)
                     # Derive summary_data
                     status_counter = Counter(df_processed['Status'])
@@ -1020,7 +1021,12 @@ class InventoryManagementSystem:
                         summary_data[status]['value'] = status_data['Stock_Value'].sum() if 'Stock_Value' in status_data.columns else 0
 
                     # Vendor Summary - FIX THIS PART:
-                    vendor_summary = analyzer.get_vendor_summary(processed_data)  # Now this will work
+                    if hasattr(analyzer, 'get_vendor_summary'):
+                        vendor_summary = analyzer.get_vendor_summary(processed_data)
+                    else:
+                        st.error("❌ 'get_vendor_summary' method not found in InventoryAnalyzer.")
+                        logger.error("Missing method 'get_vendor_summary' in InventoryAnalyzer.")
+                        return
                     st.header("🏢 Vendor Summary")
                     vendor_df = pd.DataFrame([
                         {
