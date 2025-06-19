@@ -1253,9 +1253,6 @@ class InventoryManagementSystem:
                 filtered_df = df[df['Status'].isin(status_filter)]
                 filtered_df = filtered_df[filtered_df['Vendor'].isin(vendor_filter)]
 
-                if variance_threshold > 0:
-                    filtered_df = filtered_df[abs(filtered_df['Variance_%']) >= variance_threshold]
-
                 vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
                 vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
                 vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
