@@ -932,11 +932,11 @@ class InventoryManagementSystem:
             st.success("✅ **Validation Passed:** Inventory data is compatible with PFEP master data.")
     
     def perform_inventory_analysis(self):
-       pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
-       inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
-       if not pfep_data or not inventory_data:
-           st.error("❌ Missing data for analysis")
-           return
+        pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+        inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
+        if not pfep_data or not inventory_data:
+            st.error("❌ Missing data for analysis")
+            return
         # Get tolerance from admin setting (FIXED)
         tolerance = st.session_state.get('admin_tolerance', 30)
         # Perform analysis
