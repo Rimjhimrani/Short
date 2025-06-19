@@ -1247,10 +1247,12 @@ class InventoryManagementSystem:
                         key=f"vendor_tab3_vendor_filter_{uuid.uuid4()}"
                     )
                     
-                # ✅ Apply Filter
-                filtered_df = df[df['Status'].isin(status_filter)]
-                filtered_df = filtered_df[filtered_df['Vendor'].isin(vendor_filter)]
-
+                # ✅ Apply Filters to DataFrame
+                filtered_df = df.copy()
+                if status_filter != 'All':
+                    filtered_df = filtered_df[filtered_df['Status'] == status_filter]
+                if vendor_filter != 'All':
+                    filtered_df = filtered_df[filtered_df['Vendor'] == vendor_filter]
                 vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
                 vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
                 vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
