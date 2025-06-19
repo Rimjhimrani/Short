@@ -1220,7 +1220,46 @@ class InventoryManagementSystem:
                 st.plotly_chart(fig_hist, use_container_width=True, key="variance_hist")
                 
         with tab2:
-            self.display_analysis_tables(df)
+            st.header("📋 Detailed Inventory Data")
+            # Ensure 'analyzer' and 'processed_data' exist before this block
+            analyzer = InventoryAnalyzer()
+            vendors = sorted({item['Vendor'] for item in processed_data if item.get('Vendor')})
+
+            # Filter options
+            col1, col2 = st.columns(2)
+            with col1:
+                status_filter = st.selectbox(
+                    "Filter by Status",
+                    options=['All'] + list(analyzer.status_colors.keys()),
+                    key="tab2_status_filter"
+                )
+            with col2:
+                vendor_filter = st.selectbox(
+                    "Filter by Vendor",
+                    options=['All'] + vendors,
+                    key="tab2_vendor_filter"
+                )
+            # Apply filters
+            filtered_data = processed_data.copy()
+            if status_filter != 'All':
+                filtered_data = [item for item in filtered_data if item['Status'] == status_filter]
+            if vendor_filter != 'All':
+                filtered_data = [item for item in filtered_data if item['Vendor'] == vendor_filter]
+            if filtered_data:
+                # Convert to DataFrame for display
+                df_display = pd.DataFrame(filtered_data)
+                # Format the display
+                df_display['Variance_%'] = df_display['Variance_%'].round(2)
+                df_display['Variance_Value'] = df_display['Variance_Value'].round(2)
+                df_display['Stock_Value'] = df_display['Stock_Value'].apply(lambda x: f"₹{x:,}")
+                # Reorder columns for better display
+                column_order = ['Material', 'Description', 'Vendor', 'QTY', 'RM IN QTY',
+                        'Variance_%', 'Variance_Value', 'Status', 'Stock_Value']
+                df_display = df_display[column_order]
+                st.dataframe(df_display, use_container_width=True, hide_index=True)
+                st.info(f"Showing {len(filtered_data)} items")
+            else:
+                st.warning("No data matches the selected filters.")
 
         with tab3:
             st.subheader("🏭 Vendor Analysis")
