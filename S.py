@@ -1002,44 +1002,43 @@ class InventoryManagementSystem:
                     delta=f"₹{total_value:,}"
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
-                # Vendor Summary
-                if processed_data:
-                    analyzer = InventoryAnalyzer()  # Make sure this is initialize
-                    from collections import Counter
-                    # Ensure processed_data is a list of dicts from the analysis DataFram
-                    
-                    df_processed = pd.DataFrame(processed_data)
-                    # Derive summary_data
-                    status_counter = Counter(df_processed['Status'])
-                    summary_data = {status: {"count": count} for status, count in status_counter.items()}
+            # Vendor Summary
+            if processed_data:
+                analyzer = InventoryAnalyzer()  # Make sure this is initialize
+                from collections import Counter
+                # Ensure processed_data is a list of dicts from the analysis DataFram
+                df_processed = pd.DataFrame(processed_data)
+                # Derive summary_data
+                status_counter = Counter(df_processed['Status'])
+                summary_data = {status: {"count": count} for status, count in status_counter.items()}
 
-                    # Calculate total value for each status
-                    for status in summary_data:
-                        status_data = df_processed[df_processed['Status'] == status]
-                        summary_data[status]['value'] = status_data['Stock_Value'].sum() if 'Stock_Value' in status_data.columns else 0
+                # Calculate total value for each status
+                for status in summary_data:
+                    status_data = df_processed[df_processed['Status'] == status]
+                    summary_data[status]['value'] = status_data['Stock_Value'].sum() if 'Stock_Value' in status_data.columns else 0
 
-                    # Vendor Summary - FIX THIS PART:
-                    if hasattr(analyzer, 'get_vendor_summary'):
-                        vendor_summary = analyzer.get_vendor_summary(processed_data)
-                    else:
-                        st.error("❌ 'get_vendor_summary' method not found in InventoryAnalyzer.")
-                        logger.error("Missing method 'get_vendor_summary' in InventoryAnalyzer.")
-                        return
-                    st.header("🏢 Vendor Summary")
-                    vendor_df = pd.DataFrame([
-                        {
-                            'Vendor': vendor,
-                            'Total Parts': data['total_parts'],
-                            'Total QTY': round(data['total_qty'], 2),
-                            'Total RM': round(data['total_rm'], 2),
-                            'Short Inventory': data['short_parts'],
-                            'Excess Inventory': data['excess_parts'],
-                            'Within Norms': data['normal_parts'],
-                            'Total Value': f"₹{data['total_value']:,}"
-                        }
-                        for vendor, data in vendor_summary.items()
-                    ])
-                    st.dataframe(vendor_df, use_container_width=True, hide_index=True)
+                # Vendor Summary - FIX THIS PART:
+                if hasattr(analyzer, 'get_vendor_summary'):
+                    vendor_summary = analyzer.get_vendor_summary(processed_data)
+                else:
+                    st.error("❌ 'get_vendor_summary' method not found in InventoryAnalyzer.")
+                    logger.error("Missing method 'get_vendor_summary' in InventoryAnalyzer.")
+                    return
+                st.header("🏢 Vendor Summary")
+                vendor_df = pd.DataFrame([
+                    {
+                        'Vendor': vendor,
+                        'Total Parts': data['total_parts'],
+                        'Total QTY': round(data['total_qty'], 2),
+                        'Total RM': round(data['total_rm'], 2),
+                        'Short Inventory': data['short_parts'],
+                        'Excess Inventory': data['excess_parts'],
+                        'Within Norms': data['normal_parts'],
+                        'Total Value': f"₹{data['total_value']:,}"
+                    }
+                    for vendor, data in vendor_summary.items()
+                ])
+                st.dataframe(vendor_df, use_container_width=True, hide_index=True)
         # Analysis controls
         # TABS: Graphs | Tables | Vendor | Export
         tab1, tab2, tab3, tab4 = st.tabs(["📈 Graphical Analysis", "📋 Data Table Analysis", "🏭 Vendor Analysis", "📤 Export Data"])
