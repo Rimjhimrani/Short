@@ -650,19 +650,15 @@ class InventoryManagementSystem:
         # ------------------------------
         st.subheader("📐 Set Analysis Tolerance (Admin Only)")
         # Initialize if not set
-        if "admin_tolerance" not in st.session_state:
-            st.session_state.admin_tolerance = 30
-            # Show selectbox
-        tolerance = st.selectbox(
+        # Set directly via session state binding
+        st.selectbox(
             "Tolerance Zone (+/-)",
             options=[10, 20, 30, 40, 50],
-            index=[10, 20, 30, 40, 50].index(st.session_state["admin_tolerance"]),
+            index=[10, 20, 30, 40, 50].index(st.session_state.get("admin_tolerance", 30)),
             format_func=lambda x: f"{x}%",
-            key="admin_tolerance_select"
+            key="admin_tolerance"  # ✅ THIS is the key used by your entire app
         )
-        # Update session state with current selection
-        st.session_state.admin_tolerance = tolerance
-        st.success(f"✅ Tolerance set to ±{tolerance}% (active immediately)")
+        st.success(f"✅ Tolerance is set to ±{st.session_state.admin_tolerance}% (applied instantly)")
  
         data_source = st.radio(
             "Choose data source:",
