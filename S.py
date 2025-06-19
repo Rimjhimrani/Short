@@ -548,7 +548,7 @@ class InventoryManagementSystem:
             'part_no': ['part_no', 'part_number', 'material', 'material_code', 'item_code', 'code'],
             'description': ['description', 'item_description', 'part_description', 'desc'],
             'current_qty': ['current_qty', 'qty', 'quantity', 'stock_qty', 'available_qty'],
-            'stock_value': ['stock_value', 'value', 'total_value', 'inventory_value']
+            'stock_value': ['stock_value', 'value', 'total_value', 'inventory_value','stock value','Stock Value']
         }
         
         df_columns = [col.lower().strip() for col in df.columns]
