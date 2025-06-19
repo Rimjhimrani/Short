@@ -1367,33 +1367,10 @@ class InventoryManagementSystem:
                         st.metric("💰 Total Value", f"₹{total_value:,.2f}")
                     with colC:
                         st.metric("📏 Tolerance", f"±{tolerance}%")
-                    st.markdown("#### 📦 Inventory Status Breakdown")
-                    summary_table = df_export_preview.groupby('Status')['Stock_Value'].agg(['count', 'sum']).reset_index()
-                    summary_table.columns = ['Status', 'Count', 'Total Value (₹)']
-                    st.dataframe(summary_table, use_container_width=True)
-                    # Download summary
-                    st.markdown("#### 📥 Download Summary Report")
-                    download_format = st.radio("Choose Format", ["CSV", "Excel"], key="summary_download_format")
-                    summary_filename = f"summary_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-                    if download_format == "CSV":
-                        csv_data = summary_table.to_csv(index=False)
-                        st.download_button(
-                            label="📥 Download Summary as CSV",
-                            data=csv_data,
-                            file_name=f"{summary_filename}.csv",
-                            mime="text/csv"
-                        )
-                    else:
-                        output_summary = io.BytesIO()
-                        with pd.ExcelWriter(output_summary, engine='openpyxl') as writer:
-                            summary_table.to_excel(writer, index=False, sheet_name='Summary')
-                            st.download_button(
-                                label="📥 Download Summary as Excel",
-                                data=output_summary.getvalue(),
-                                file_name=f"{summary_filename}.xlsx",
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                            )
+                        st.markdown("#### 📦 Inventory Status Breakdown")
+                        summary_table = df_export_preview.groupby('Status')['Stock_Value'].agg(['count', 'sum']).reset_index()
+                        summary_table.columns = ['Status', 'Count', 'Total Value (₹)']
+                        st.dataframe(summary_table, use_container_width=True)
                 else:
                     st.warning("No summary available. Please upload or generate analysis data.")
                 # Export options
@@ -1418,14 +1395,7 @@ class InventoryManagementSystem:
                 elif export_data_type == 'Excess Inventory Only':
                     export_data = [item for item in processed_data if item['Status'] == 'Excess Inventory']
                 else:  # Summary Only
-                    export_data = [
-                        {
-                            'Status': status,
-                            'Count': data['count'],
-                            'Total_Value': data['value']
-                        }
-                        for status, data in summary_data.items()
-                    ]
+                    export_data = summary_table.to_dict(orient='records') if not summary_table.empty else []
                 if export_data:
                     df_export = pd.DataFrame(export_data)
                     # Email input field
