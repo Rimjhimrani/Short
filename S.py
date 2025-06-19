@@ -1371,6 +1371,29 @@ class InventoryManagementSystem:
                     summary_table = df_export_preview.groupby('Status')['Stock_Value'].agg(['count', 'sum']).reset_index()
                     summary_table.columns = ['Status', 'Count', 'Total Value (₹)']
                     st.dataframe(summary_table, use_container_width=True)
+                    # Download summary
+                    st.markdown("#### 📥 Download Summary Report")
+                    download_format = st.radio("Choose Format", ["CSV", "Excel"], key="summary_download_format")
+                    summary_filename = f"summary_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+                    if download_format == "CSV":
+                        csv_data = summary_table.to_csv(index=False)
+                        st.download_button(
+                            label="📥 Download Summary as CSV",
+                            data=csv_data,
+                            file_name=f"{summary_filename}.csv",
+                            mime="text/csv"
+                        )
+                    else:
+                        output_summary = io.BytesIO()
+                        with pd.ExcelWriter(output_summary, engine='openpyxl') as writer:
+                            summary_table.to_excel(writer, index=False, sheet_name='Summary')
+                            st.download_button(
+                                label="📥 Download Summary as Excel",
+                                data=output_summary.getvalue(),
+                                file_name=f"{summary_filename}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            )
                 else:
                     st.warning("No summary available. Please upload or generate analysis data.")
                 # Export options
