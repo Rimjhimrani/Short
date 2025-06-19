@@ -651,6 +651,7 @@ class InventoryManagementSystem:
         # Initialize admin_tolerance if not exists
         if "admin_tolerance" not in st.session_state:
             st.session_state.admin_tolerance = 30
+    
         # Create selectbox with proper callback
         new_tolerance = st.selectbox(
             "Tolerance Zone (+/-)",
@@ -665,7 +666,15 @@ class InventoryManagementSystem:
             # Clear analysis results to force re-analysis with new tolerance
             st.session_state.persistent_analysis_results = None
             st.session_state.persistent_inventory_locked = False
-            st.success(f"✅ Tolerance updated to ±{new_tolerance}%. Users need to re-analyze inventory.")
+            # If inventory data exists, automatically re-run analysis with new tolerance
+            inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
+            pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+            if inventory_data and pfep_data:
+                with st.spinner(f"Re-analyzing inventory with new tolerance ±{new_tolerance}%..."):
+                    analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, new_tolerance)
+                    self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
+                    st.session_state.persistent_inventory_locked = True
+            st.success(f"✅ Tolerance updated to ±{new_tolerance}% and analysis refreshed!")
             st.rerun()
         # Display current tolerance
         st.info(f"Current tolerance: ±{st.session_state.admin_tolerance}%")
@@ -923,23 +932,20 @@ class InventoryManagementSystem:
             st.success("✅ **Validation Passed:** Inventory data is compatible with PFEP master data.")
     
     def perform_inventory_analysis(self):
-        """Perform comprehensive inventory analysis"""
-        pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
-        inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
-        
-        if not pfep_data or not inventory_data:
-            st.error("❌ Missing data for analysis")
-            return
-        
-        # Get tolerance from user preferences
-        tolerance = st.session_state.user_preferences.get('default_tolerance', 30)
-        
+       pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+       inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
+       if not pfep_data or not inventory_data:
+           st.error("❌ Missing data for analysis")
+           return
+        # Get tolerance from admin setting (FIXED)
+        tolerance = st.session_state.get('admin_tolerance', 30)
         # Perform analysis
-        with st.spinner("Analyzing inventory..."):
+        with st.spinner(f"Analyzing inventory with ±{tolerance}% tolerance..."):
             analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, tolerance)
             self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
-        
-        st.success(f"✅ Analysis completed for {len(analysis_results)} parts!")
+            # Track which tolerance was used for this analysis
+            st.session_state.last_analysis_tolerance = tolerance
+        st.success(f"✅ Analysis completed for {len(analysis_results)} parts with ±{tolerance}% tolerance!")
     
     def display_analysis_results(self):
         """Display comprehensive inventory analysis results"""
@@ -948,11 +954,26 @@ class InventoryManagementSystem:
         if not analysis_data:
             st.error("❌ No analysis results available")
             return
-        
-        df = pd.DataFrame(analysis_data)
-        
-        # Show current tolerance being used (FIXED)
+        # Check if tolerance has changed since last analysis
         current_tolerance = st.session_state.get('admin_tolerance', 30)
+        last_analysis_tolerance = st.session_state.get('last_analysis_tolerance', None)
+    
+        # If tolerance changed, automatically re-run analysis
+        if last_analysis_tolerance != current_tolerance:
+            pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
+            inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
+            if pfep_data and inventory_data:
+                st.info(f"🔄 Tolerance changed from ±{last_analysis_tolerance}% to ±{current_tolerance}%. Re-analyzing...")
+                with st.spinner(f"Re-analyzing with new tolerance ±{current_tolerance}%..."):
+                    analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, current_tolerance)
+                    self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
+                    st.session_state.last_analysis_tolerance = current_tolerance
+                st.success("✅ Analysis updated with new tolerance!")
+                st.rerun()
+                
+        analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
+        df = pd.DataFrame(analysis_data)
+
         st.info(f"🔒 Analysis performed with tolerance: ±{current_tolerance}% (set by Admin)")
 
         # Summary Dashboard
