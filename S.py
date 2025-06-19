@@ -7,6 +7,7 @@ import logging
 import pickle
 import base64
 import uuid
+import io
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
