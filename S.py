@@ -1267,18 +1267,19 @@ class InventoryManagementSystem:
                 vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
                 vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
                 vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
-                st.dataframe(vendor_df, use_container_width=True)
-                # Optional: Visualize with sunburst
-                fig = px.sunburst(
-                    vendor_df,
-                    path=['Vendor'],
-                    values='total_value',
-                    title="Total Inventory Value by Vendor",
-                    template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                )
-                st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst")
-            else:
-                st.warning("No analysis data available.")
+                if not vendor_df.empty:
+                    st.dataframe(vendor_df, use_container_width=True)
+                    # 🌞 Sunburst Chart for visual summary
+                    fig = px.sunburst(
+                        vendor_df,
+                        path=['Vendor'],
+                        values='total_value',
+                        title="Total Inventory Value by Vendor (Filtered)",
+                        template=st.session_state.user_preferences.get('chart_theme', 'plotly')
+                    )
+                    st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst_filtered")
+                else:
+                    st.warning("No vendor data to display after applying filters.")
 
             with tab4:
                 self.display_export_options(df)
