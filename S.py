@@ -1353,6 +1353,26 @@ class InventoryManagementSystem:
                     st.warning("No data matches the selected filters.")
             with tab4:
                 st.header("📤 Export & Email Report")
+                # ✅ INSERT SUMMARY REPORT PREVIEW BLOCK HERE
+                st.markdown("### 📊 Summary Report Preview")
+                df_export_preview = pd.DataFrame(processed_data)
+                if not df_export_preview.empty and 'Status' in df_export_preview.columns:
+                    total_parts = len(df_export_preview)
+                    total_value = df_export_preview['Stock_Value'].sum()
+                    tolerance = st.session_state.get("admin_tolerance", 30)
+                    colA, colB, colC = st.columns(3)
+                    with colA:
+                        st.metric("🔢 Total Parts", f"{total_parts}")
+                    with colB:
+                        st.metric("💰 Total Value", f"₹{total_value:,.2f}")
+                    with colC:
+                        st.metric("📏 Tolerance", f"±{tolerance}%")
+                    st.markdown("#### 📦 Inventory Status Breakdown")
+                    summary_table = df_export_preview.groupby('Status')['Stock_Value'].agg(['count', 'sum']).reset_index()
+                    summary_table.columns = ['Status', 'Count', 'Total Value (₹)']
+                    st.dataframe(summary_table, use_container_width=True)
+                else:
+                    st.warning("No summary available. Please upload or generate analysis data.")
                 # Export options
                 col1, col2 = st.columns(2)
                 with col1:
