@@ -1231,6 +1231,7 @@ class InventoryManagementSystem:
             else:
                 analyzer = InventoryAnalyzer()
                 df = pd.DataFrame(analysis_data)
+                vendors = sorted(df['Vendor'].dropna().unique().tolist())
                 # ✅ Filter Controls
                 st.markdown("### 🔍 Filter Options")
                 col1, col2 = st.columns(2)
@@ -1253,22 +1254,35 @@ class InventoryManagementSystem:
                     filtered_df = filtered_df[filtered_df['Status'] == status_filter]
                 if vendor_filter != 'All':
                     filtered_df = filtered_df[filtered_df['Vendor'] == vendor_filter]
-                vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
-                vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
-                vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
-                if not vendor_df.empty:
-                    st.dataframe(vendor_df, use_container_width=True)
-                    # 🌞 Sunburst Chart for visual summary
-                    fig = px.sunburst(
-                        vendor_df,
-                        path=['Vendor'],
-                        values='total_value',
-                        title="Total Inventory Value by Vendor",
-                        template=st.session_state.user_preferences.get('chart_theme', 'plotly')
-                    )
-                    st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst_filtered")
-                else:
-                    st.warning("No vendor data to display after applying filters.")
+                if not filtered_df.empty:
+                    df_display = filtered_df.copy()
+                    # Format and clean up display
+                    df_display['Variance_%'] = df_display['Variance_%'].round(2)
+                    df_display['Variance_Value'] = df_display['Variance_Value'].round(2)
+                    df_display['Stock_Value'] = df_display['Stock_Value'].apply(lambda x: f"₹{x:,}")
+
+                    column_order = ['Material', 'Description', 'Vendor', 'QTY', 'RM IN QTY',
+                            'Variance_%', 'Variance_Value', 'Status', 'Stock_Value']
+                    df_display = df_display[column_order]
+
+                    st.dataframe(df_display, use_container_width=True, hide_index=True)
+                    st.info(f"Showing {len(df_display)} parts")
+                    vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
+                    vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
+                    vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
+                    if not vendor_df.empty:
+                        st.dataframe(vendor_df, use_container_width=True)
+                        # 🌞 Sunburst Chart for visual summary
+                        fig = px.sunburst(
+                            vendor_df,
+                            path=['Vendor'],
+                            values='total_value',
+                            title="Total Inventory Value by Vendor",
+                            template=st.session_state.user_preferences.get('chart_theme', 'plotly')
+                        )
+                        st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst_filtered")
+                    else:
+                        st.warning("No vendor data to display after applying filters.")
 
             with tab4:
                 self.display_export_options(df)
