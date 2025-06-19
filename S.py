@@ -649,22 +649,20 @@ class InventoryManagementSystem:
         # Tolerance Setting for Admin
         # ------------------------------
         st.subheader("📐 Set Analysis Tolerance (Admin Only)")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            tolerance = st.selectbox(
-                "Tolerance Zone (+/-)",
-                options=[10, 20, 30, 40, 50],
-                index=[10, 20, 30, 40, 50].index(st.session_state.get("admin_tolerance", 30)),
-                format_func=lambda x: f"{x}%",
-                key="admin_tolerance_select"
-            )
-        with col2:
-            st.write("")  # spacing
-            if st.button("🔐 Lock Tolerance", key="lock_tolerance_btn", type="primary"):
-                st.session_state.admin_tolerance = tolerance
-                st.success(f"✅ Tolerance locked at ±{tolerance}% for all users")
-                # PFEP Data Loading Options
-        st.subheader("📋 Load PFEP Master Data")
+        # Initialize if not set
+        if "admin_tolerance" not in st.session_state:
+            st.session_state.admin_tolerance = 30
+            # Show selectbox
+        tolerance = st.selectbox(
+            "Tolerance Zone (+/-)",
+            options=[10, 20, 30, 40, 50],
+            index=[10, 20, 30, 40, 50].index(st.session_state["admin_tolerance"]),
+            format_func=lambda x: f"{x}%",
+            key="admin_tolerance_select"
+        )
+        # Update session state with current selection
+        st.session_state.admin_tolerance = tolerance
+        st.success(f"✅ Tolerance set to ±{tolerance}% (active immediately)")
  
         data_source = st.radio(
             "Choose data source:",
