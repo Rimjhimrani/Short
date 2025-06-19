@@ -1328,7 +1328,76 @@ class InventoryManagementSystem:
                 else:
                     st.warning("No data matches the selected filters.")
             with tab4:
-                self.display_export_options(df)
+                st.header("📤 Export & Email Report")
+                # Export options
+                col1, col2 = st.columns(2)
+                with col1:
+                    export_format = st.radio(
+                        "Select Export Format",
+                        options=['CSV', 'Excel'],
+                        key="export_format"
+                    )
+                with col2:
+                    export_data_type = st.radio(
+                        "Select Data to Export",
+                        options=['All Data', 'Short Inventory Only', 'Excess Inventory Only', 'Summary Only'],
+                        key="export_data_type"
+                    )
+                # Prepare export data
+                if export_data_type == 'All Data':
+                    export_data = processed_data
+                elif export_data_type == 'Short Inventory Only':
+                    export_data = [item for item in processed_data if item['Status'] == 'Short Inventory']
+                elif export_data_type == 'Excess Inventory Only':
+                    export_data = [item for item in processed_data if item['Status'] == 'Excess Inventory']
+                else:  # Summary Only
+                    export_data = [
+                        {
+                            'Status': status,
+                            'Count': data['count'],
+                            'Total_Value': data['value']
+                        }
+                        for status, data in summary_data.items()
+                    ]
+                if export_data:
+                    df_export = pd.DataFrame(export_data)
+                    # Email input field
+                    st.markdown("### 📧 Send Report via Email")
+                    recipient_email = st.text_input("Enter recipient email address")
+                    if export_format == 'CSV':
+                        csv = df_export.to_csv(index=False)
+                        filename = f"inventory_analysis_{export_data_type.replace(' ', '_').lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                        st.download_button(
+                            label="📥 Download CSV",
+                            data=csv,
+                            file_name=filename,
+                            mime="text/csv"
+                        )
+                        # Simulate sending
+                        if st.button("📧 Send CSV Report"):
+                            if recipient_email:
+                                st.success(f"📤 Simulated sending of CSV report to {recipient_email}")
+                            else:
+                                st.warning("Please enter a valid email address.")
+                    else:  # Excel
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df_export.to_excel(writer, sheet_name='Inventory Analysis', index=False)
+                        filename = f"inventory_analysis_{export_data_type.replace(' ', '_').lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                        st.download_button(
+                            label="📥 Download Excel",
+                            data=output.getvalue(),
+                            file_name=filename,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                        # Simulate sending
+                        if st.button("📧 Send Excel Report"):
+                            if recipient_email:
+                                st.success(f"📤 Simulated sending of Excel report to {recipient_email}")
+                            else:
+                                st.warning("Please enter a valid email address.")
+                else:
+                   st.warning("No data available for export with current selection.")
 
         col1, col2, col3 = st.columns([2, 1, 1])
         
