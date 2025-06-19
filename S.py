@@ -864,6 +864,13 @@ class InventoryManagementSystem:
                     else:
                         df = pd.read_excel(uploaded_file)
                     
+                    df.columns = df.columns.str.strip().str.replace(" ", "_")
+                    # ✅ Ensure 'Stock_Value' is numeric
+                    if 'Stock_Value' in df.columns:
+                        df['Stock_Value'] = pd.to_numeric(df['Stock_Value'], errors='coerce').fillna(0)
+                    else:
+                        st.warning("⚠️ 'Stock_Value' column not found in uploaded file.")
+                    
                     st.info(f"📄 File loaded: {uploaded_file.name} ({df.shape[0]} rows, {df.shape[1]} columns)")
                     
                     # Preview raw data
