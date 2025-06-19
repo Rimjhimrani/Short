@@ -1264,25 +1264,29 @@ class InventoryManagementSystem:
                     column_order = ['Material', 'Description', 'Vendor', 'QTY', 'RM IN QTY',
                             'Variance_%', 'Variance_Value', 'Status', 'Stock_Value']
                     df_display = df_display[column_order]
-
                     st.dataframe(df_display, use_container_width=True, hide_index=True)
                     st.info(f"Showing {len(df_display)} parts")
-                    vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
-                    vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
-                    vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
-                    if not vendor_df.empty:
-                        st.dataframe(vendor_df, use_container_width=True)
-                        # 🌞 Sunburst Chart for visual summary
-                        fig = px.sunburst(
-                            vendor_df,
-                            path=['Vendor'],
-                            values='total_value',
-                            title="Total Inventory Value by Vendor",
+                    # ✅ Bar chart: total value by vendor
+                    st.markdown("### 📊 Inventory Value by Vendor")
+
+                    # Prepare Stock_Value for chart
+                    chart_df = filtered_df.copy()
+                    chart_df['Stock_Value'] = pd.to_numeric(chart_df['Stock_Value'], errors='coerce')
+                    vendor_totals = chart_df.groupby('Vendor')['Stock_Value'].sum().reset_index()
+                    if not vendor_totals.empty and vendor_totals['Stock_Value'].sum() > 0:
+                        fig = px.bar(
+                            vendor_totals,
+                            x='Vendor',
+                            y='Stock_Value',
+                            title="Total Stock Value per Vendor (Filtered)",
+                            labels={'Stock_Value': 'Stock Value (₹)'},
                             template=st.session_state.user_preferences.get('chart_theme', 'plotly')
                         )
-                        st.plotly_chart(fig, use_container_width=True, key="vendor_sunburst_filtered")
+                        st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning("No vendor data to display after applying filters.")
+                        st.warning("No stock value data available for chart.")
+                else:
+                    st.warning("No data matches the selected filters.")
 
             with tab4:
                 self.display_export_options(df)
