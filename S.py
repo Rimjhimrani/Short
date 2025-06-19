@@ -136,8 +136,8 @@ class InventoryAnalyzer:
         """Analyze ONLY inventory parts that exist in PFEP"""
         results = []
         # Create lookup dictionaries
-        pfep_dict = {item['Part_No']: item for item in pfep_data}
-        inventory_dict = {item['Part_No']: item for item in current_inventory}
+        pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
+        inventory_dict = {str(item['Part_No']).strip().upper(): item for item in current_inventory}
         
         # ✅ Loop over inventory only
         for part_no, inventory_item in inventory_dict.items():
