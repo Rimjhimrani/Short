@@ -1226,8 +1226,44 @@ class InventoryManagementSystem:
             st.subheader("🏭 Vendor Analysis")
             # Load and process analysis data
             analysis_data = self.persistence.load_data_from_session_state('persistent_analysis_results')
-            if analysis_data:
-                analyzer = InventoryAnalyzer()  # Initialize analyzer
+            if not analysis_data:
+                st.warning("No analysis data available.")
+            else:
+                analyzer = InventoryAnalyzer()
+                df = pd.DataFrame(analysis_data)
+                # ✅ Filter Controls
+                st.markdown("### 🔍 Filter Options")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    status_filter = st.multiselect(
+                        "Filter by Status",
+                        options=df['Status'].unique(),
+                        default=df['Status'].unique(),
+                        key=f"vendor_tab3_status_filter_{uuid.uuid4()}"
+                    )
+                with col2:
+                    vendor_filter = st.multiselect(
+                        "Filter by Vendor",
+                        options=df['Vendor'].unique(),
+                        default=df['Vendor'].unique(),
+                        key=f"vendor_tab3_vendor_filter_{uuid.uuid4()}"
+                    )
+                with col3:
+                    variance_threshold = st.number_input(
+                        "Min Variance % (absolute)",
+                        min_value=0.0,
+                        max_value=500.0,
+                        value=0.0,
+                        step=5.0,
+                        key=f"vendor_tab3_variance_filter_{uuid.uuid4()}"
+                    )
+                # ✅ Apply Filter
+                filtered_df = df[df['Status'].isin(status_filter)]
+                filtered_df = filtered_df[filtered_df['Vendor'].isin(vendor_filter)]
+
+                if variance_threshold > 0:
+                    filtered_df = filtered_df[abs(filtered_df['Variance_%']) >= variance_threshold]
+
                 vendor_summary = analyzer.get_vendor_summary(analysis_data)  # Call method on analyzer
                 vendor_df = pd.DataFrame.from_dict(vendor_summary, orient='index').reset_index()
                 vendor_df.rename(columns={'index': 'Vendor'}, inplace=True)
