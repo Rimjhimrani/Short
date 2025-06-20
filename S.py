@@ -274,10 +274,10 @@ class InventoryManagementSystem:
     
     def safe_float_convert(self, value):
         """Enhanced safe float conversion with better error handling and debug mode"""
-        if self.debug:
+        if self.debug and st._is_running_with_streamlit:
             st.write(f"🔍 DEBUG: Converting value '{value}' (type: {type(value)})")
         if pd.isna(value) or value == '' or value is None:
-            if self.debug:
+            if self.debug and st._is_running_with_streamlit:
                 st.write(f"   → Converted to 0.0 (empty/null value)")
             return 0.0
         
@@ -285,54 +285,58 @@ class InventoryManagementSystem:
             # Handle different input types
             if isinstance(value, (int, float)):
                 result = float(value)
-                if self.debug:
+                if self.debug and st._is_running_with_streamlit:
                     st.write(f"   → Converted to {result} (numeric type)")
                 return result
             
             str_value = str(value).strip()
-            if self.debug:
+            if self.debug and st._is_running_with_streamlit:
                 st.write(f"   → String value: '{str_value}'")
             
             # Skip empty or invalid strings
             if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
-                if self.debug:
+                if self.debug and st._is_running_with_streamlit:
                     st.write(f"   → Converted to 0.0 (empty/invalid string)")
                 return 0.0
             
             # Remove common formatting
             str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
-            if self.debug:
+            if self.debug and st._is_running_with_streamlit:
                 st.write(f"   → After cleanup: '{str_value}'")
             
             # Handle percentage
             if str_value.endswith('%'):
                 str_value = str_value[:-1]
-                if self.debug:
+                if self.debug and st._is_running_with_streamlit:
                     st.write(f"   → Removed %: '{str_value}'")
             
             # Handle negative values in parentheses
             if str_value.startswith('(') and str_value.endswith(')'):
                 str_value = '-' + str_value[1:-1]
-                if self.debug:
+                if self.debug and st._is_running_with_streamlit:
                     st.write(f"   → Converted parentheses to negative: '{str_value}'")
             
             # Handle scientific notation
             if 'e' in str_value.lower():
                 result = float(str_value)
-                if self.debug:
+                if self.debug and st._is_running_with_streamlit:
                     st.write(f"   → Scientific notation converted to {result}")
                 return result
             
             result = float(str_value)
-            if self.debug:
+            if self.debug and st._is_running_with_streamlit:
                 st.write(f"   → Final result: {result}")
             return result
             
         except (ValueError, TypeError) as e:
-            if self.debug:
+            if self.debug and st._is_running_with_streamlit:
                 st.write(f"   → Error converting '{value}': {e}")
             print(f"Failed to convert '{value}' to float: {e}")
             return 0.0
+            
+    def safe_int_convert(self, value):
+        """Enhanced safe int conversion"""
+        return int(self.safe_float_convert(value))
             
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
@@ -602,135 +606,61 @@ class InventoryManagementSystem:
         return standardized_data
     
     def standardize_current_inventory(self, df):
-        """Enhanced PFEP data standardization with better error handling"""
+        """Standardize current inventory data with full column mappings and debugging."""
         if df is None or df.empty:
             return []
-        
-        # Column mapping with more variations
-        column_mappings = {
-            'part_no': ['part_no', 'part_number', 'material', 'material_code', 'item_code', 'code', 'part no', 'partno'],
-            'description': ['description', 'item_description', 'part_description', 'desc', 'part description', 'material_description', 'item desc'],
-            'rm_qty': ['rm_in_qty', 'rm_qty', 'required_qty', 'norm_qty', 'target_qty', 'rm', 'ri_in_qty', 'rm in qty'],
-            'vendor_code': ['vendor_code', 'vendor_id', 'supplier_code', 'supplier_id', 'vendor id', 'Vendor Code', 'vendor code'],
-            'vendor_name': ['vendor_name', 'vendor', 'supplier_name', 'supplier','Vendor Name', 'vendor name'],
-            'city': ['city', 'location', 'place'],
-            'state': ['state', 'region', 'province']
-        }
-        
-        # Find matching columns
-        df_columns = [col.lower().strip() for col in df.columns]
-        mapped_columns = {}
-        
-        for key, variations in column_mappings.items():
-            for variation in variations:
-                if variation in df_columns:
-                    original_col = df.columns[df_columns.index(variation)]
-                    mapped_columns[key] = original_col
-                    break
-        
-        if 'part_no' not in mapped_columns or 'rm_qty' not in mapped_columns:
-            st.error("❌ Required columns not found. Please ensure your file has Part Number and RM Quantity columns.")
-            return []
-        
-        standardized_data = []
-        for _, row in df.iterrows():
-            item = {
-                'Part_No': str(row[mapped_columns['part_no']]).strip(),
-                'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
-                'RM_IN_QTY': self.safe_float_convert(row[mapped_columns['rm_qty']]),
-                'Vendor_Code': str(row.get(mapped_columns.get('vendor_code', ''), '')).strip(),
-                'Vendor_Name': str(row.get(mapped_columns.get('vendor_name', ''), 'Unknown')).strip(),
-                'City': str(row.get(mapped_columns.get('city', ''), '')).strip(),
-                'State': str(row.get(mapped_columns.get('state', ''), '')).strip()
-            }
-            standardized_data.append(item)
-        
-        return standardized_data
-    
-    def standardize_current_inventory(self, df):
-        """Standardize current inventory data with enhanced debugging"""
-        if df is None or df.empty:
-            return []
-        
+        # 🔁 Add all possible column mappings
         column_mappings = {
             'part_no': ['part_no', 'part_number', 'material', 'material_code', 'item_code', 'code'],
             'description': ['description', 'item_description', 'part_description', 'desc'],
             'current_qty': ['current_qty', 'qty', 'quantity', 'stock_qty', 'available_qty'],
-            'stock_value': ['stock_value', 'value', 'total_value', 'inventory_value','stock value','Stock Value']
+            'stock_value': ['stock_value', 'value', 'total_value', 'inventory_value', 'stock value', 'Stock Value'],
+            'uom': ['uom', 'unit', 'unit_of_measure'],
+            'location': ['location', 'store', 'warehouse', 'site'],
+            'vendor': ['vendor', 'vendor_name', 'supplier', 'supplier_name'],
+            'batch': ['batch', 'batch_number', 'lot', 'lot_number']
         }
-        
-        df_columns_lower = {}
-        for col in df.columns:
-            if col is not None:  # Add safety check
-                df_columns_lower[col.lower().strip()] = col
-        
+        df_columns_lower = {col.lower().strip(): col for col in df.columns if col is not None}
         mapped_columns = {}
         for key, variations in column_mappings.items():
             for variation in variations:
                 if variation.lower() in df_columns_lower:
                     mapped_columns[key] = df_columns_lower[variation.lower()]
                     break
-        
-        # Debug: Print found columns
-        st.write("🔍 DEBUG: Found column mappings:")
-        for key, col in mapped_columns.items():
-            st.write(f"  {key} -> {col}")
-            
+        # Debug: show mappings
+        if self.debug:
+            st.write("🔍 DEBUG: Column mappings found:")
+            for key, col in mapped_columns.items():
+                st.write(f"  {key} → {col}")
         if 'part_no' not in mapped_columns or 'current_qty' not in mapped_columns:
             st.error("❌ Required columns not found. Please ensure your file has Part Number and Current Quantity columns.")
             return []
-        
         standardized_data = []
         
-        # Process each row with better error handling
-        for i, row in df.iterrows():
+        for i, (_, row) in enumerate(df.iterrows()):
             try:
                 part_no = str(row[mapped_columns['part_no']]).strip()
-                if part_no == 'nan' or part_no == '':
+                if part_no.lower() in ('nan', '', 'none'):
                     continue
-                
-                description = str(row.get(mapped_columns.get('description', ''), '')).strip()
-                current_qty = self.safe_float_convert(row[mapped_columns['current_qty']])
-            
-                # Improved stock value extraction
-                stock_value = 0.0
-                if 'stock_value' in mapped_columns:
-                    stock_value_col = mapped_columns['stock_value']
-                    if stock_value_col in row.index:
-                        raw_stock_value = row[stock_value_col]
-                        
-                        # Debug print for first few rows with detailed conversion
-                        if i < 10:  # Show more rows for debugging
-                            st.write(f"🔍 Row {i+1} DEBUG:")
-                            st.write(f"   Part: {part_no}")
-                            st.write(f"   Column: {stock_value_col}")
-                            for i, row in enumerate(your_dataframe.iterrows()):
-                                debug_mode = i < 3  # Only debug first 3 rows
-                                if debug_mode:
-                                    st.write(f"Raw Value: '{raw_stock_value}'")
-                        
-                        if i < 10:
-                            st.write(f"   Final Stock Value: {stock_value}")
-                    else:
-                        if i < 5:
-                            st.write(f"🔍 Column '{stock_value_col}' not found in row {i+1}")
-                else:
-                    if i < 5:
-                        st.write(f"🔍 stock_value not in mapped_columns for row {i+1}")
-                
                 item = {
                     'Part_No': part_no,
-                    'Description': description,
-                    'Current_QTY': current_qty,
-                    'Stock_Value': stock_value
+                    'Current_QTY': self.safe_float_convert(row[mapped_columns['current_qty']]),
+                    'Stock_Value': self.safe_float_convert(row.get(mapped_columns.get('stock_value', ''), 0)),
+                    'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
+                    'UOM': str(row.get(mapped_columns.get('uom', ''), '')).strip(),
+                    'Location': str(row.get(mapped_columns.get('location', ''), '')).strip(),
+                    'Vendor': str(row.get(mapped_columns.get('vendor', ''), '')).strip(),
+                    'Batch': str(row.get(mapped_columns.get('batch', ''), '')).strip()
                 }
                 standardized_data.append(item)
-                
+                if self.debug and i < 5:
+                    st.write(f"🔍 Row {i+1}: {item}")
             except Exception as e:
-                st.warning(f"⚠️ Error processing row {i+1}: {e}")
+                if self.debug:
+                    st.write(f"⚠️ Error processing row {i+1}: {e}")
                 continue
-        
-        st.write(f"✅ Processed {len(standardized_data)} inventory records")
+        if self.debug:
+            st.write(f"✅ Total standardized records: {len(standardized_data)}")
         return standardized_data
     
     def validate_inventory_against_pfep(self, inventory_data):
