@@ -273,6 +273,9 @@ class InventoryManagementSystem:
             print(f"WARNING: {message}")
     
     def safe_float_convert(self, value):
+        import sys
+        IS_RUNNING_STREAMLIT = "streamlit" in sys.argv[0]
+
         """Enhanced safe float conversion with better error handling and debug mode"""
         if self.debug and st._is_running_with_streamlit:
             st.write(f"🔍 DEBUG: Converting value '{value}' (type: {type(value)})")
