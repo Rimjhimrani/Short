@@ -702,7 +702,10 @@ class InventoryManagementSystem:
                             st.write(f"🔍 Row {i+1} DEBUG:")
                             st.write(f"   Part: {part_no}")
                             st.write(f"   Column: {stock_value_col}")
-                            st.write(f"   Raw Value: '{raw_stock_value}', debug={i < 3}")
+                            for i, row in enumerate(your_dataframe.iterrows()):
+                                debug_mode = i < 3  # Only debug first 3 rows
+                                if debug_mode:
+                                    st.write(f"Raw Value: '{raw_stock_value}'")
                         
                         if i < 10:
                             st.write(f"   Final Stock Value: {stock_value}")
