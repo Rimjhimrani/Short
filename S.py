@@ -258,34 +258,72 @@ class InventoryManagementSystem:
         
         # Handle None, NaN, empty values
         if value is None or value == '':
-            if debug: st.write("DEBUG: Value is None or empty, returning 0.0")
+            if debug: 
+                st.write("DEBUG: Value is None or empty, returning 0.0")
             return 0.0
         
         # Handle pandas NaN
         if pd.isna(value):
-            if debug: st.write("DEBUG: Value is pandas NaN, returning 0.0")
+            if debug: 
+                st.write("DEBUG: Value is pandas NaN, returning 0.0")
             return 0.0
         
         try:
             # Handle numeric types directly
             if isinstance(value, (int, float)):
                 result = float(value)
-                if debug: st.write(f"DEBUG: Numeric value converted to: {result}")
+                if debug: 
+                    st.write(f"DEBUG: Numeric value converted to: {result}")
                 return result
             
             # Convert to string and clean
             str_value = str(value).strip()
-            if debug: st.write(f"DEBUG: String value after strip: '{str_value}'")
+            if debug: 
+                st.write(f"DEBUG: String value after strip: '{str_value}'")
             
             # Skip empty or invalid strings
             if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
-                if debug: st.write("DEBUG: String is empty or invalid, returning 0.0")
+                if debug: 
+                    st.write("DEBUG: String is empty or invalid, returning 0.0")
                 return 0.0
             
             # Remove common formatting characters but preserve decimal points and negative signs
             original_str = str_value
             str_value = str_value.replace(',', '')  # Remove thousands separators
             str_value = str_value.replace(' ', '')  # Remove spaces
+            
+            # Remove currency symbols
+            for symbol in ['₹', '$', '€', '£', '¥']:
+                str_value = str_value.replace(symbol, '')
+            
+            if debug: 
+                st.write(f"DEBUG: After removing formatting: '{original_str}' -> '{str_value}'")
+            
+            # Handle percentage
+            if str_value.endswith('%'):
+                str_value = str_value[:-1]
+                result = float(str_value) / 100
+                if debug: 
+                    st.write(f"DEBUG: Percentage converted: {result}")
+                return result
+            
+            # Handle negative values in parentheses (accounting format)
+            if str_value.startswith('(') and str_value.endswith(')'):
+                str_value = '-' + str_value[1:-1]
+                if debug: 
+                    st.write(f"DEBUG: Parentheses converted to negative: '{str_value}'")
+            
+            # Try direct float conversion
+            result = float(str_value)
+            if debug: 
+                st.write(f"DEBUG: Successfully converted to float: {result}")
+            return result
+            
+        except (ValueError, TypeError) as e:
+            if debug: 
+                st.write(f"DEBUG: Conversion failed: {e}")
+            st.warning(f"⚠️ Failed to convert '{value}' to float: {e}")
+            return 0.0
             
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
