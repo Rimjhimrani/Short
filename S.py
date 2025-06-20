@@ -568,7 +568,10 @@ class InventoryManagementSystem:
             'stock_value': ['stock_value', 'value', 'total_value', 'inventory_value','stock value','Stock Value']
         }
         
-        df_columns = [col.lower().strip() for col in df.columns]
+        df_columns_lower = {}
+        for col in df.columns:
+            if col is not None:  # Add safety check
+                df_columns_lower[col.lower().strip()] = col
         mapped_columns = {}
         for key, variations in column_mappings.items():
             for variation in variations:
