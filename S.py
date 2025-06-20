@@ -222,6 +222,7 @@ class InventoryManagementSystem:
     """Main application class"""
     
     def __init__(self):
+        self.debug = True
         self.analyzer = InventoryAnalyzer()
         self.persistence = DataPersistence()
         self.initialize_session_state()
