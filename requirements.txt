@@ -1,6 +1,6 @@
+streamlit>=1.20
 pandas
 numpy
-streamlit
 openpyxl
 xlrd
 plotly
