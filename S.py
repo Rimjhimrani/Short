@@ -9,7 +9,6 @@ import base64
 import uuid
 import io
 import logging
-import sys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
