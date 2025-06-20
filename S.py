@@ -274,10 +274,10 @@ class InventoryManagementSystem:
     
     def safe_float_convert(self, value):
         """Enhanced safe float conversion with better error handling and debug mode"""
-        if debug:
+        if self.debug:
             st.write(f"🔍 DEBUG: Converting value '{value}' (type: {type(value)})")
         if pd.isna(value) or value == '' or value is None:
-            if debug:
+            if self.debug:
                 st.write(f"   → Converted to 0.0 (empty/null value)")
             return 0.0
         
@@ -285,51 +285,51 @@ class InventoryManagementSystem:
             # Handle different input types
             if isinstance(value, (int, float)):
                 result = float(value)
-                if debug:
+                if self.debug:
                     st.write(f"   → Converted to {result} (numeric type)")
                 return result
             
             str_value = str(value).strip()
-            if debug:
+            if self.debug:
                 st.write(f"   → String value: '{str_value}'")
             
             # Skip empty or invalid strings
             if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
-                if debug:
+                if self.debug:
                     st.write(f"   → Converted to 0.0 (empty/invalid string)")
                 return 0.0
             
             # Remove common formatting
             str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
-            if debug:
+            if self.debug:
                 st.write(f"   → After cleanup: '{str_value}'")
             
             # Handle percentage
             if str_value.endswith('%'):
                 str_value = str_value[:-1]
-                if debug:
+                if self.debug:
                     st.write(f"   → Removed %: '{str_value}'")
             
             # Handle negative values in parentheses
             if str_value.startswith('(') and str_value.endswith(')'):
                 str_value = '-' + str_value[1:-1]
-                if debug:
+                if self.debug:
                     st.write(f"   → Converted parentheses to negative: '{str_value}'")
             
             # Handle scientific notation
             if 'e' in str_value.lower():
                 result = float(str_value)
-                if debug:
+                if self.debug:
                     st.write(f"   → Scientific notation converted to {result}")
                 return result
             
             result = float(str_value)
-            if debug:
+            if self.debug:
                 st.write(f"   → Final result: {result}")
             return result
             
         except (ValueError, TypeError) as e:
-            if debug:
+            if self.debug:
                 st.write(f"   → Error converting '{value}': {e}")
             print(f"Failed to convert '{value}' to float: {e}")
             return 0.0
@@ -337,6 +337,7 @@ class InventoryManagementSystem:
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
         return int(self.safe_float_convert(value))
+            
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
         top_items = [item for item in data if item['Status'] == status_type]
