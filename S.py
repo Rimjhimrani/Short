@@ -628,7 +628,7 @@ class InventoryManagementSystem:
                 st.warning(f"⚠️ Skipping row {i+1} due to error: {e}")
                 continue
         # Final debug inf
-        print(f"Total items processed: {len(standardized_data)}"
+        print(f"Total items processed: {len(standardized_data)}")
         if standardized_data:
              total_stock_value = sum(item['Stock_Value'] for item in standardized_data)
              print(f"Total stock value: {total_stock_value}")
