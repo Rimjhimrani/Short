@@ -702,7 +702,7 @@ class InventoryManagementSystem:
                             st.write(f"🔍 Row {i+1} DEBUG:")
                             st.write(f"   Part: {part_no}")
                             st.write(f"   Column: {stock_value_col}")
-                            st.write(f"   Raw Value: '{raw_stock_value, debug=(i < 3))
+                            st.write(f"   Raw Value: '{raw_stock_value}', debug={i < 3}")
                         
                         if i < 10:
                             st.write(f"   Final Stock Value: {stock_value}")
