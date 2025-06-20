@@ -273,69 +273,32 @@ class InventoryManagementSystem:
             print(f"WARNING: {message}")
     
     def safe_float_convert(self, value):
-        import sys
-        IS_RUNNING_STREAMLIT = "streamlit" in sys.argv[0]
-
-        """Enhanced safe float conversion with better error handling and debug mode"""
-        if self.debug and st._is_running_with_streamlit:
-            st.write(f"🔍 DEBUG: Converting value '{value}' (type: {type(value)})")
-        if pd.isna(value) or value == '' or value is None:
-            if self.debug and st._is_running_with_streamlit:
-                st.write(f"   → Converted to 0.0 (empty/null value)")
+        """Enhanced float conversion with optional debug output via Streamlit."""
+        if pd.isna(value) or value in ['', None]:
+            if self.debug:
+                st.write("🟡 safe_float_convert: NULL or empty value → 0.0")
             return 0.0
-        
         try:
-            # Handle different input types
             if isinstance(value, (int, float)):
                 result = float(value)
-                if self.debug and st._is_running_with_streamlit:
-                    st.write(f"   → Converted to {result} (numeric type)")
+                if self.debug:
+                    st.write(f"✅ Converted numeric: {value} → {result}")
                 return result
-            
             str_value = str(value).strip()
-            if self.debug and st._is_running_with_streamlit:
-                st.write(f"   → String value: '{str_value}'")
-            
-            # Skip empty or invalid strings
-            if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
-                if self.debug and st._is_running_with_streamlit:
-                    st.write(f"   → Converted to 0.0 (empty/invalid string)")
-                return 0.0
-            
-            # Remove common formatting
             str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
-            if self.debug and st._is_running_with_streamlit:
-                st.write(f"   → After cleanup: '{str_value}'")
-            
-            # Handle percentage
             if str_value.endswith('%'):
                 str_value = str_value[:-1]
-                if self.debug and st._is_running_with_streamlit:
-                    st.write(f"   → Removed %: '{str_value}'")
-            
-            # Handle negative values in parentheses
             if str_value.startswith('(') and str_value.endswith(')'):
                 str_value = '-' + str_value[1:-1]
-                if self.debug and st._is_running_with_streamlit:
-                    st.write(f"   → Converted parentheses to negative: '{str_value}'")
-            
-            # Handle scientific notation
-            if 'e' in str_value.lower():
-                result = float(str_value)
-                if self.debug and st._is_running_with_streamlit:
-                    st.write(f"   → Scientific notation converted to {result}")
-                return result
-            
             result = float(str_value)
-            if self.debug and st._is_running_with_streamlit:
-                st.write(f"   → Final result: {result}")
+            if self.debug:
+                st.write(f"✅ Parsed '{value}' → {result}")
             return result
-            
         except (ValueError, TypeError) as e:
-            if self.debug and st._is_running_with_streamlit:
-                st.write(f"   → Error converting '{value}': {e}")
-            print(f"Failed to convert '{value}' to float: {e}")
+            if self.debug:
+                st.write(f"❌ Error converting '{value}' → 0.0 | Error: {e}")
             return 0.0
+
             
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
