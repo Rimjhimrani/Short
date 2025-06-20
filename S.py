@@ -272,82 +272,41 @@ class InventoryManagementSystem:
             print(f"WARNING: {message}")
     
     def safe_float_convert(self, value):
-       """Enhanced safe float conversion with better error handling and debugging"""
-        try:
-            if debug:
-                self.safe_print(f"DEBUG: Converting value: '{value}' (type: {type(value)})")
-            
-            # Handle None, NaN, empty values
-            if value is None or value == '':
-                if debug: 
-                    self.safe_print("DEBUG: Value is None or empty, returning 0.0")
-                return 0.0
-            
-            # Handle pandas NaN
-            try:
-                if pd.isna(value):
-                    if debug: 
-                        self.safe_print("DEBUG: Value is pandas NaN, returning 0.0")
-                    return 0.0
-            except (NameError, TypeError):
-                # Handle case where pd (pandas) is not imported or value type doesn't support isna
-                pass
-            
-            # Handle numeric types directly
-            if isinstance(value, (int, float)):
-                result = float(value)
-                if debug: 
-                    self.safe_print(f"DEBUG: Numeric value converted to: {result}")
-                return result
-            
-            # Convert to string and clean
-            str_value = str(value).strip()
-            if debug: 
-                self.safe_print(f"DEBUG: String value after strip: '{str_value}'")
-            
-            # Skip empty or invalid strings
-            if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
-                if debug: 
-                    self.safe_print("DEBUG: String is empty or invalid, returning 0.0")
-                return 0.0
-            
-            # Remove common formatting characters but preserve decimal points and negative signs
-            original_str = str_value
-            str_value = str_value.replace(',', '')  # Remove thousands separators
-            str_value = str_value.replace(' ', '')  # Remove spaces
-            
-            # Remove currency symbols
-            for symbol in ['₹', '$', '€', '£', '¥']:
-                str_value = str_value.replace(symbol, '')
-            
-            if debug: 
-                self.safe_print(f"DEBUG: After removing formatting: '{original_str}' -> '{str_value}'")
-            
-            # Handle percentage
-            if str_value.endswith('%'):
-                str_value = str_value[:-1]
-                result = float(str_value) / 100
-                if debug: 
-                    self.safe_print(f"DEBUG: Percentage converted: {result}")
-                return result
-            
-            # Handle negative values in parentheses (accounting format)
-            if str_value.startswith('(') and str_value.endswith(')'):
-                str_value = '-' + str_value[1:-1]
-                if debug: 
-                    self.safe_print(f"DEBUG: Parentheses converted to negative: '{str_value}'")
-            
-            # Try direct float conversion
-            result = float(str_value)
-            if debug: 
-                self.safe_print(f"DEBUG: Successfully converted to float: {result}")
-            return result
-            
-        except (ValueError, TypeError) as e:
-            if debug: 
-                self.safe_print(f"DEBUG: Conversion failed: {e}")
-            self.safe_warning(f"⚠️ Failed to convert '{value}' to float: {e}")
+       """Enhanced safe float conversion with better error handling"""
+    if pd.isna(value) or value == '' or value is None:
+        return 0.0
+    
+    try:
+        # Handle different input types
+        if isinstance(value, (int, float)):
+            return float(value)
+        
+        str_value = str(value).strip()
+        
+        # Skip empty or invalid strings
+        if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
             return 0.0
+        
+        # Remove common formatting
+        str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
+        
+        # Handle percentage
+        if str_value.endswith('%'):
+            str_value = str_value[:-1]
+        
+        # Handle negative values in parentheses
+        if str_value.startswith('(') and str_value.endswith(')'):
+            str_value = '-' + str_value[1:-1]
+        
+        # Handle scientific notation
+        if 'e' in str_value.lower():
+            return float(str_value)
+        
+        return float(str_value)
+        
+    except (ValueError, TypeError) as e:
+        print(f"Failed to convert '{value}' to float: {e}")
+        return 0.0
             
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
