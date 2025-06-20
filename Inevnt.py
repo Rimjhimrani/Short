@@ -1520,7 +1520,6 @@ class InventoryManagementSystem:
         st.markdown(
             "<div style='text-align: center; color: #666; font-size: 14px;'>"
             "Inventory Analyzer | Powered by Agilomatrix  | "
-            f"Current Tolerance: ±{st.session_state.tolerance}%"
             "</div>",
             unsafe_allow_html=True
         )
