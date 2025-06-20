@@ -272,41 +272,32 @@ class InventoryManagementSystem:
             print(f"WARNING: {message}")
     
     def safe_float_convert(self, value):
-       """Enhanced safe float conversion with better error handling"""
-    if pd.isna(value) or value == '' or value is None:
-        return 0.0
-    
-    try:
-        # Handle different input types
-        if isinstance(value, (int, float)):
-            return float(value)
-        
-        str_value = str(value).strip()
-        
-        # Skip empty or invalid strings
-        if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
+        """Enhanced safe float conversion with better error handling"""
+        if pd.isna(value) or value == '' or value is None:
             return 0.0
-        
-        # Remove common formatting
-        str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
-        
-        # Handle percentage
-        if str_value.endswith('%'):
-            str_value = str_value[:-1]
-        
-        # Handle negative values in parentheses
-        if str_value.startswith('(') and str_value.endswith(')'):
-            str_value = '-' + str_value[1:-1]
-        
-        # Handle scientific notation
-        if 'e' in str_value.lower():
+        try:
+            # Handle different input types
+            if isinstance(value, (int, float)):
+                return float(value)
+            str_value = str(value).strip()
+            # Skip empty or invalid strings
+            if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
+                return 0.0
+            # Remove common formatting
+            str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
+            # Handle percentage
+            if str_value.endswith('%'):
+                str_value = str_value[:-1]
+            # Handle negative values in parentheses
+            if str_value.startswith('(') and str_value.endswith(')'):
+                str_value = '-' + str_value[1:-1]
+            # Handle scientific notation
+            if 'e' in str_value.lower():
+                return float(str_value)
             return float(str_value)
-        
-        return float(str_value)
-        
-    except (ValueError, TypeError) as e:
-        print(f"Failed to convert '{value}' to float: {e}")
-        return 0.0
+        except (ValueError, TypeError) as e:
+            print(f"Failed to convert '{value}' to float: {e}")
+            return 0.0
             
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
