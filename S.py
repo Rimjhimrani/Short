@@ -8,6 +8,7 @@ import pickle
 import base64
 import uuid
 import io
+import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -566,15 +567,26 @@ class InventoryManagementSystem:
             return []
         
         standardized_data = []
-        for _, row in df.iterrows():
-            item = {
-                'Part_No': str(row[mapped_columns['part_no']]).strip(),
-                'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
-                'Current_QTY': self.safe_float_convert(row[mapped_columns['current_qty']]),
-                'Stock_Value': self.safe_float_convert(row.get(mapped_columns.get('stock_value', ''), 0))
-            }
-            standardized_data.append(item)
-        
+        for i, row in df.iterrows():
+            try:
+                part_no = str(row[mapped_columns['part_no']]).strip()
+                description = str(row.get(mapped_columns.get('description', ''), '')).strip()
+                current_qty = self.safe_float_convert(row[mapped_columns['current_qty']])
+                
+                # ✅ Extract raw stock value and debug it
+                raw_stock_value = row.get(mapped_columns.get('stock_value', ''), 0)
+                st.write(f"Row {i+1} → Raw Stock Value:", raw_stock_value)
+                stock_value = self.safe_float_convert(raw_stock_value)
+                item = {
+                    'Part_No': part_no,
+                    'Description': description,
+                    'Current_QTY': current_qty,
+                    'Stock_Value': stock_value
+                }
+                standardized_data.append(item)
+            except Exception as e:
+                st.warning(f"⚠️ Skipping row {i+1} due to error: {e}")
+                continue
         return standardized_data
     
     def validate_inventory_against_pfep(self, inventory_data):
