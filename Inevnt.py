@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -7,7 +8,6 @@ import pickle
 import base64
 import uuid
 import io
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +20,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 
 # Custom CSS for better styling
 st.markdown("""
