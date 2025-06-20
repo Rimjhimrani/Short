@@ -638,23 +638,28 @@ class InventoryManagementSystem:
                 # Improved stock value extraction
                 stock_value = 0.0
                 if 'stock_value' in mapped_columns:
-                    raw_stock_value = row[mapped_columns['stock_value']]
-                    # Debug print for first few rows
+                    stock_value_col = mapped_columns['stock_value']
+                    if stock_value_col in row.index:
+                        raw_stock_value = row[stock_value_col]
+                        
+                        # Debug print for first few rows with detailed conversion
+                        if i < 10:  # Show more rows for debugging
+                            st.write(f"🔍 Row {i+1} DEBUG:")
+                            st.write(f"   Part: {part_no}")
+                            st.write(f"   Column: {stock_value_col}")
+                            st.write(f"   Raw Value: '{raw_stock_value}' (type: {type(raw_stock_value)})")
+                            
+                            # Use debug mode for conversion
+                            stock_value = self.safe_float_convert(raw_stock_value, debug=True)
+                            st.write(f"   Final Stock Value: {stock_value}")
+                            st.write("   ---")
+                        else:
+                            stock_value = self.safe_float_convert(raw_stock_value, debug=False)
+                else:
                     if i < 5:
-                        print(f"Row {i+1}: Part {part_no}, Raw Stock Value: {raw_stock_value} (type: {type(raw_stock_value)})")
-                    stock_value = self.safe_float_convert(raw_stock_value)
+                        st.write(f"⚠️ No stock_value column found for row {i+1}")
+                        st.write(f"   Available mapped columns: {list(mapped_columns.keys())}")
                 
-                    # If conversion failed, try alternative approaches
-                    if stock_value == 0.0 and raw_stock_value is not None:
-                        # Try converting as string first
-                        try:
-                            str_val = str(raw_stock_value).strip()
-                            if str_val and str_val.lower() not in ['nan', 'none', '']:
-                                # Remove currency symbols and commas
-                                cleaned_val = str_val.replace('₹', '').replace('$', '').replace(',', '').strip()
-                                stock_value = float(cleaned_val)
-                        except:
-                            stock_value = 0.0
                 item = {
                     'Part_No': part_no,
                     'Description': description,
