@@ -304,10 +304,7 @@ class InventoryManagementSystem:
         """Enhanced safe int conversion"""
         return int(self.safe_float_convert(value))
             
-    def safe_int_convert(self, value):
-        """Enhanced safe int conversion"""
-        return int(self.safe_float_convert(value))
-            
+
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
         top_items = [item for item in data if item['Status'] == status_type]
