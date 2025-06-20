@@ -1487,6 +1487,12 @@ class InventoryManagementSystem:
         """Main application runner"""
         # Page header
         st.title("📊 Inventory Analyzer")
+        st.markdown(
+            "<p style='font-size:18px; font-style:italic; margin-top:-10px; text-align:left;'>"
+            "Designed and Developed by Agilomatrix</p>",
+            unsafe_allow_html=True
+        )
+        
         st.markdown("---")
         
         # Authentication
@@ -1509,6 +1515,16 @@ class InventoryManagementSystem:
             self.admin_data_management()
         else:  # User role
             self.user_inventory_upload()
+         # Footer
+        st.markdown("---")
+        st.markdown(
+            "<div style='text-align: center; color: #666; font-size: 14px;'>"
+            "Inventory Analyzer | Powered by Agilomatrix  | "
+        f"Current Tolerance: ±{st.session_state.tolerance}%"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
 
 # Application entry point
 if __name__ == "__main__":
