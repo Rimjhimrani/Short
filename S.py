@@ -287,8 +287,6 @@ class InventoryManagementSystem:
             str_value = str_value.replace(',', '')  # Remove thousands separators
             str_value = str_value.replace(' ', '')  # Remove spaces
             
-            # Remove currency symbols
-            for symbol in ['₹', '
     def safe_int_convert(self, value):
         """Enhanced safe int conversion"""
         return int(self.safe_float_convert(value))
