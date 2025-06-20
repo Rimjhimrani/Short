@@ -252,15 +252,24 @@ class InventoryManagementSystem:
                 st.session_state[key] = None
     
     def safe_float_convert(self, value):
-        """Enhanced safe float conversion with better error handling"""
         if pd.isna(value) or value == '' or value is None:
             return 0.0
         
         try:
-            str_value = str(value).strip()
-            # Remove common formatting
-            str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '')
+            # Handle different input types
+            if isinstance(value, (int, float)):
+                return float(value)
             
+            str_value = str(value).strip()
+            
+            # Skip empty or invalid strings
+            if not str_value or str_value.lower() in ['nan', 'none', 'null', '']:
+                return 0.0
+            
+            # Remove common formatting
+            str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('$', '').replace('€', '')
+            
+            # Handle percentage
             if str_value.endswith('%'):
                 str_value = str_value[:-1]
             
@@ -268,10 +277,17 @@ class InventoryManagementSystem:
             if str_value.startswith('(') and str_value.endswith(')'):
                 str_value = '-' + str_value[1:-1]
             
+            # Handle scientific notation
+            if 'e' in str_value.lower():
+                return float(str_value)
+            
             return float(str_value)
-        except (ValueError, TypeError) as e:
+         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
+    def safe_int_convert(self, value):
+        """Enhanced safe int conversion"""
+        return int(self.safe_float_convert(value))
         
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
@@ -554,29 +570,49 @@ class InventoryManagementSystem:
         
         df_columns = [col.lower().strip() for col in df.columns]
         mapped_columns = {}
-        
         for key, variations in column_mappings.items():
             for variation in variations:
-                if variation in df_columns:
-                    original_col = df.columns[df_columns.index(variation)]
-                    mapped_columns[key] = original_col
+                if variation.lower() in df_columns_lower:
+                    mapped_columns[key] = df_columns_lower[variation.lower()]
                     break
-        
+        # Debug: Print found columns
+        print("Found column mappings:")
+        for key, col in mapped_columns.items():
+            print(f"  {key} -> {col}")
+            
         if 'part_no' not in mapped_columns or 'current_qty' not in mapped_columns:
             st.error("❌ Required columns not found. Please ensure your file has Part Number and Current Quantity columns.")
             return []
-        
         standardized_data = []
+        # Process each row with better error handling
         for i, row in df.iterrows():
             try:
                 part_no = str(row[mapped_columns['part_no']]).strip()
+                if part_no == 'nan' or part_no == '':
+                    continue
                 description = str(row.get(mapped_columns.get('description', ''), '')).strip()
                 current_qty = self.safe_float_convert(row[mapped_columns['current_qty']])
+            
+                # Improved stock value extraction
+                stock_value = 0.0
+                if 'stock_value' in mapped_columns:
+                    raw_stock_value = row[mapped_columns['stock_value']]
+                    # Debug print for first few rows
+                    if i < 5:
+                        print(f"Row {i+1}: Part {part_no}, Raw Stock Value: {raw_stock_value} (type: {type(raw_stock_value)})")
+                    stock_value = self.safe_float_convert(raw_stock_value)
                 
-                # ✅ Extract raw stock value and debug it
-                raw_stock_value = row.get(mapped_columns.get('stock_value', ''), 0)
-                st.write(f"Row {i+1} → Raw Stock Value:", raw_stock_value)
-                stock_value = self.safe_float_convert(raw_stock_value)
+                    # If conversion failed, try alternative approaches
+                    if stock_value == 0.0 and raw_stock_value is not None:
+                        # Try converting as string first
+                        try:
+                            str_val = str(raw_stock_value).strip()
+                            if str_val and str_val.lower() not in ['nan', 'none', '']:
+                                # Remove currency symbols and commas
+                                cleaned_val = str_val.replace('₹', '').replace('$', '').replace(',', '').strip()
+                                stock_value = float(cleaned_val)
+                        except:
+                            stock_value = 0.0
                 item = {
                     'Part_No': part_no,
                     'Description': description,
@@ -584,9 +620,20 @@ class InventoryManagementSystem:
                     'Stock_Value': stock_value
                 }
                 standardized_data.append(item)
+                # Debug print for first few items
+                if i < 5:
+                    print(f"Processed item {i+1}: {item}")
             except Exception as e:
+                print(f"Error processing row {i+1}: {e}")
                 st.warning(f"⚠️ Skipping row {i+1} due to error: {e}")
                 continue
+        # Final debug inf
+        print(f"Total items processed: {len(standardized_data)}"
+        if standardized_data:
+             total_stock_value = sum(item['Stock_Value'] for item in standardized_data)
+             print(f"Total stock value: {total_stock_value}")
+             non_zero_values = [item for item in standardized_data if item['Stock_Value'] > 0]
+             print(f"Items with non-zero stock value: {len(non_zero_values)}")
         return standardized_data
     
     def validate_inventory_against_pfep(self, inventory_data):
