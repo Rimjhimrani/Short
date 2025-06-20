@@ -282,7 +282,7 @@ class InventoryManagementSystem:
                 return float(str_value)
             
             return float(str_value)
-         except (ValueError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             logger.warning(f"Failed to convert '{value}' to float: {e}")
             return 0.0
     def safe_int_convert(self, value):
