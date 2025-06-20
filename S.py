@@ -600,8 +600,7 @@ class InventoryManagementSystem:
         return standardized_data
     
     def standardize_current_inventory(self, df):
-        """Standardize current inventory data"""
-       """Enhanced PFEP data standardization with better error handling"""
+        """Enhanced PFEP data standardization with better error handling"""
         if df is None or df.empty:
             return []
         
