@@ -1036,7 +1036,7 @@ class InventoryManagementSystem:
                     variance_percent = abs(current_qty - rm_qty) / rm_qty * 100
                 if variance_percent <= tolerance:
                     result['STATUS'] = 'Within Norms'
-                    result['INVENTORY REMARK STATUS'] = 'Within Tolerance
+                    result['INVENTORY REMARK STATUS'] = 'Within Tolerance'
             # Save results
             self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
             st.success(f"✅ Analysis completed! {len(analysis_results)} parts analyzed.")
