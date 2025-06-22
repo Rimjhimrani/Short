@@ -133,93 +133,58 @@ class InventoryAnalyzer:
             'Excess Inventory': '#2196F3', # Blue
             'Short Inventory': '#F44336'   # Red
         }
-    @staticmethod
-    def normalize_part_no(part_no):
-        return str(part_no).strip().upper().replace("-", "").replace("_", "").replace(" ", "")
-
-    @staticmethod
-    def safe_float_convert(value):
-        try:
-            return float(value)
-        except (TypeError, ValueError):
-            return 0.0
         
-    def analyze_inventory(self, pfep_data, inventory_data):
+    def analyze_inventory(self, pfep_data, current_inventory, tolerance=30):
+        """Analyze ONLY inventory parts that exist in PFEP"""
+        if tolerance is None:
+            tolerance = st.session_state.get("admin_tolerance", 30)  # default fallback
         results = []
-        print("🟨 PFEP Sample Rows:")
-        for i, row in enumerate(pfep_data[:3]):
-            print(f"PFEP Row {i+1}: {row}")
-        print("\n🟦 Inventory Sample Rows:")
-        for i, row in enumerate(inventory_data[:3]):
-            print(f"Inventory Row {i+1}: {row}")
-        # Normalize PFEP part numbers
-        pfep_dict = {}
-        for item in pfep_data:
-            key = self.normalize_part_no(item.get('Part_No') or item.get('Material', ''))
-            pfep_dict[key] = item
-
-        # Normalize inventory part numbers
-        inventory_dict = {}
-        for item in current_inventory:
-            key = self.normalize_part_no(item.get('Part_No') or item.get('Material', ''))
-            inventory_dict[key] = item
-
-        # Analyze each PFEP part
-        for part_no, pfep_item in pfep_dict.items():
-            inventory_item = inventory_dict.get(part_no, {})
-
-            if not inventory_item:
-                print(f"❌ DEBUG: Part {part_no} from PFEP not found in inventory data")
-
-            unit_price = self.safe_float_convert(
-                pfep_item.get('Unit_Price') or pfep_item.get('UNIT PRICE') or 0
-            )
-            rm_qty = self.safe_float_convert(
-                pfep_item.get('RM_IN_QTY') or pfep_item.get('Inventory Norms - QTY') or 0
-            )
-            current_qty = self.safe_float_convert(
-                inventory_item.get('Current_QTY') or inventory_item.get('QTY') or 0
-            )
-            current_value = self.safe_float_convert(
-                inventory_item.get('Stock_Value') or current_qty * unit_price
-            )
-            if unit_price == 0 or rm_qty == 0:
-                print(f"⚠️ DEBUG: Missing Unit_Price or RM_IN_QTY for part '{part_no}'")
-
-            short_excess_qty = current_qty - rm_qty
-            short_excess_value = short_excess_qty * unit_price
-
-            # Determine inventory status
-            if short_excess_qty < 0:
-                remark = "Short Norms"
-                status = "Short Inventory"
-            elif short_excess_qty > 0:
-                remark = "Excess Norms"
-                status = "Excess Inventory"
+        # Create lookup dictionaries
+        pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
+        inventory_dict = {str(item['Part_No']).strip().upper(): item for item in current_inventory}
+        
+        # ✅ Loop over inventory only
+        for part_no, inventory_item in inventory_dict.items():
+            pfep_item = pfep_dict.get(part_no)
+            if not pfep_item:
+                continue  # Skip inventory parts not found in PFEP
+            current_qty = inventory_item.get('Current_QTY', 0)
+            stock_value = inventory_item.get('Stock_Value', 0)
+            rm_qty = pfep_item.get('RM_IN_QTY', 0)
+            
+            # Calculate variance
+            # 
+            if rm_qty > 0:
+                variance_pct = ((current_qty - rm_qty) / rm_qty) * 100
             else:
-                remark = "Within Norms"
-                status = "Within Norms"
-
+                variance_pct = 0
+            
+            variance_value = current_qty - rm_qty
+            
+            # Determine status
+            if abs(variance_pct) <= tolerance:
+                status = 'Within Norms'
+            elif variance_pct > tolerance:
+                status = 'Excess Inventory'
+            else:
+                status = 'Short Inventory'
+            
             result = {
-                'PART NO': part_no,
-                'PART DESCRIPTION': pfep_item.get('Description') or pfep_item.get('PART DESCRIPTION', ''),
-                'VENDOR CODE': pfep_item.get('Vendor_Code', ''),
-                'VENDOR NAME': pfep_item.get('Vendor_Name') or pfep_item.get('VENDOR NAME', ''),
-                'UNIT PRICE': unit_price,
-                'Inventory Norms - QTY': rm_qty,
-                'Current Inventory-QTY': current_qty,
-                'Current Inventory - VALUE': current_value,
-                'SHORT/EXCESS INVENTORY': short_excess_qty,
-                'INVENTORY REMARK STATUS': remark,
-                'VALUE(Unit Price* Short/Excess Inventory)': short_excess_value,
-                'STATUS': status
+                'Material': part_no,
+                'Description': pfep_item.get('Description', ''),
+                'QTY': current_qty,
+                'RM IN QTY': rm_qty,
+                'Stock_Value': stock_value,
+                'Variance_%': variance_pct,
+                'Variance_Value': variance_value,
+                'Status': status,
+                'Vendor': pfep_item.get('Vendor_Name', 'Unknown'),
+                'Vendor_Code': pfep_item.get('Vendor_Code', ''),
+                'City': pfep_item.get('City', ''),
+                'State': pfep_item.get('State', '')
             }
-
             results.append(result)
-
-        print(f"✅ DEBUG: Processed {len(results)} parts total")
         return results
-
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
         vendor_summary = {}
@@ -342,24 +307,24 @@ class InventoryManagementSystem:
 
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
-        top_items = [item for item in data if item.get('STATUS') == status_type]
-        top_items = sorted(top_items, key=lambda x: abs(x.get('SHORT_EXCESS_QTY', 0)), reverse=True)[:10]
+        top_items = [item for item in data if item['Status'] == status_type]
+        top_items = sorted(top_items, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
 
         if not top_items:
             st.info(f"No parts found for status: {status_type}")
             return
 
-        materials = [item.get('PART_NO', '') for item in top_items]
-        short_excess = [item.get('SHORT_EXCESS_QTY', 0) for item in top_items]
+        materials = [item['Material'] for item in top_items]
+        variances = [item['Variance_%'] for item in top_items]
 
         fig = go.Figure(data=[
-            go.Bar(x=short_excess, y=materials, orientation='h', marker_color=color)
+            go.Bar(x=variances, y=materials, orientation='h', marker_color=color)
         ])
 
         fig.update_layout(
             title=f"Top 10 Parts - {status_type}",
-            xaxis_title="Short/Excess Quantity",
-            yaxis_title="Part Number",
+            xaxis_title="Variance %",
+            yaxis_title="Material Code",
             yaxis=dict(autorange='reversed')
         )
 
@@ -994,19 +959,10 @@ class InventoryManagementSystem:
                 st.rerun()
     
     def display_validation_results(self, validation):
-        """Display validation results with detailed statistics"""
+        """Display inventory validation results"""
         st.subheader("🔍 Data Validation Results")
-        if validation['is_valid']:
-            st.success("✅ Validation passed!")
-        else:
-            st.error("❌ Validation issues found:")
-            for issue in validation['issues']:
-                st.error(f"• {issue}")
-        if validation['warnings']:
-            st.warning("⚠️ Warnings:")
-            for warning in validation['warnings']:
-                st.warning(f"• {warning}")
-        # Display statistics
+        
+        # Summary metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("PFEP Parts", validation['pfep_parts_count'])
@@ -1015,37 +971,38 @@ class InventoryManagementSystem:
         with col3:
             st.metric("Matching Parts", validation['matching_parts_count'])
         with col4:
-            matching_rate = (validation['matching_parts_count'] / validation['pfep_parts_count'] * 100) if validation['pfep_parts_count'] > 0 else 0
-            st.metric("Match Rate", f"{matching_rate:.1f}%")
-        if validation['missing_parts_count'] > 0:
-            st.warning(f"📋 {validation['missing_parts_count']} parts from PFEP not found in inventory")
-        if validation['extra_parts_count'] > 0:
-            st.info(f"📦 {validation['extra_parts_count']} extra parts found in inventory (not in PFEP)")
+            match_percentage = (validation['matching_parts_count'] / validation['pfep_parts_count']) * 100
+            st.metric("Match %", f"{match_percentage:.1f}%")
+        
+        # Issues and warnings
+        if validation['issues']:
+            st.error("❌ **Issues Found:**")
+            for issue in validation['issues']:
+                st.error(f"• {issue}")
+        
+        if validation['warnings']:
+            st.warning("⚠️ **Warnings:**")
+            for warning in validation['warnings']:
+                st.warning(f"• {warning}")
+        
+        if validation['is_valid']:
+            st.success("✅ **Validation Passed:** Inventory data is compatible with PFEP master data.")
     
     def perform_inventory_analysis(self):
-        """Perform comprehensive inventory analysis"""
         pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
         inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
         if not pfep_data or not inventory_data:
             st.error("❌ Missing data for analysis")
             return
-        with st.spinner("Analyzing inventory..."):
-            # Get tolerance from admin settings
-            tolerance = st.session_state.get('admin_tolerance', 30)
-            # Perform analysis
-            analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data)
-            # Apply tolerance logic
-            for result in analysis_results:
-                rm_qty = result['Inventory Norms - QTY']
-                current_qty = result['Current Inventory-QTY']
-                if rm_qty > 0:
-                    variance_percent = abs(current_qty - rm_qty) / rm_qty * 100
-                if variance_percent <= tolerance:
-                    result['STATUS'] = 'Within Norms'
-                    result['INVENTORY REMARK STATUS'] = 'Within Tolerance'
-            # Save results
+        # Get tolerance from admin setting (FIXED)
+        tolerance = st.session_state.get('admin_tolerance', 30)
+        # Perform analysis
+        with st.spinner(f"Analyzing inventory with ±{tolerance}% tolerance..."):
+            analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, tolerance)
             self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
-            st.success(f"✅ Analysis completed! {len(analysis_results)} parts analyzed.")
+            # Track which tolerance was used for this analysis
+            st.session_state.last_analysis_tolerance = tolerance
+        st.success(f"✅ Analysis completed for {len(analysis_results)} parts with ±{tolerance}% tolerance!")
     
     def display_analysis_results(self):
         """Display comprehensive inventory analysis results"""
