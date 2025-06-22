@@ -133,6 +133,16 @@ class InventoryAnalyzer:
             'Excess Inventory': '#2196F3', # Blue
             'Short Inventory': '#F44336'   # Red
         }
+    @staticmethod
+    def normalize_part_no(part_no):
+        return str(part_no).strip().upper().replace("-", "").replace("_", "").replace(" ", "")
+
+    @staticmethod
+    def safe_float_convert(value):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
         
     def analyze_inventory(self, pfep_data, current_inventory):
         """Modified inventory analysis to match required output format"""
