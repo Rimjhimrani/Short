@@ -341,7 +341,7 @@ class InventoryManagementSystem:
         # Filter top parts by selected inventory status
         top_items = [
             item for item in data 
-            if item['INVENTORY REMARK STATUS'] == status_typ
+            if item['INVENTORY REMARK STATUS'] == status_type
         ]
         # Sort by absolute ₹ value of short/excess impact
         top_items = sorted(
