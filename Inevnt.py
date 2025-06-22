@@ -133,9 +133,18 @@ class InventoryAnalyzer:
             'Excess Inventory': '#2196F3', # Blue
             'Short Inventory': '#F44336'   # Red
         }
-        
+    def safe_float_convert(self, value):
+        """Enhanced float conversion with optional debug output."""
+        if pd.isna(value) or value in ['', None]:
+            return 0.0
+        try:
+            if isinstance(value, (int, float)):
+                return float(value)
+            str_value = str(value).strip()
+            str_value = str_value.replace(',', '').replace(' ', '').replace('₹', '').replace('€', '')
+      
     def analyze_inventory(self, pfep_data, current_inventory, tolerance=30):
-        """Analyze ONLY inventory parts that exist in PFEP"""
+         """Analyze ONLY inventory parts that exist in PFEP"""
         if tolerance is None:
             tolerance = st.session_state.get("admin_tolerance", 30)  # default fallback
         results = []
@@ -148,36 +157,59 @@ class InventoryAnalyzer:
             pfep_item = pfep_dict.get(part_no)
             if not pfep_item:
                 continue  # Skip inventory parts not found in PFEP
-            current_qty = inventory_item.get('Current_QTY', 0)
-            stock_value = inventory_item.get('Stock_Value', 0)
-            rm_qty = pfep_item.get('RM_IN_QTY', 0)
+            current_qty = float(inventory_item.get('Current_QTY', 0))
+            stock_value = float(inventory_item.get('Stock_Value', 0))
+            rm_qty = float(pfep_item.get('RM_IN_QTY', 0))
+            unit_price = float(pfep_item.get('Unit_Price', 0))
+            rm_in_days = float(pfep_item.get('RM_In_Days', 0))
+            avg_consumption_day = float(pfep_item.get('AVG_Consumption_Day', 0))
             
-            # Calculate variance
-            # 
+            # Calculate short/excess values
+            shortage_excess_qty = current_qty - rm_qty
+            
+            # Calculate variance percentage for status determination
             if rm_qty > 0:
                 variance_pct = ((current_qty - rm_qty) / rm_qty) * 100
             else:
-                variance_pct = 0
-            
-            variance_value = current_qty - rm_qty
+                variance_pct = 0.0
             
             # Determine status
             if abs(variance_pct) <= tolerance:
                 status = 'Within Norms'
+                inventory_remark = 'Normal'
             elif variance_pct > tolerance:
                 status = 'Excess Inventory'
+                inventory_remark = 'Excess'
             else:
                 status = 'Short Inventory'
+                inventory_remark = 'Short'
+            
+            # Calculate status value (Unit Price * Short/Excess Inventory)
+            status_value = unit_price * abs(shortage_excess_qty) if shortage_excess_qty != 0 else 0.0
+            if shortage_excess_qty < 0:  # Short inventory
+                status_value = -status_value
             
             result = {
+                'PART_NO': part_no,
+                'PART_DESCRIPTION': str(pfep_item.get('Description', '')),
+                'VENDOR_CODE': str(pfep_item.get('Vendor_Code', '')),
+                'VENDOR_NAME': str(pfep_item.get('Vendor_Name', 'Unknown')),
+                'UNIT_PRICE': round(unit_price, 2),
+                'RM_In_Days': round(rm_in_days, 2),
+                'AVG_CONSUMPTION_DAY': round(avg_consumption_day, 2),
+                'RM_IN_QTY': round(rm_qty, 2),
+                'Current_Inventory_QTY': round(current_qty, 2),
+                'Current_Inventory_VALUE': round(stock_value, 2),
+                'SHORT_EXCESS_VALUE': round(shortage_excess_qty, 2),
+                'INVENTORY_REMARK': inventory_remark,
+                'STATUS': status,
+                'STATUS_VALUE': round(status_value, 2),
+                # Keep these for backward compatibility and internal calculations
                 'Material': part_no,
                 'Description': pfep_item.get('Description', ''),
                 'QTY': current_qty,
                 'RM IN QTY': rm_qty,
                 'Stock_Value': stock_value,
-                'Variance_%': variance_pct,
-                'Variance_Value': variance_value,
-                'Status': status,
                 'Vendor': pfep_item.get('Vendor_Name', 'Unknown'),
                 'Vendor_Code': pfep_item.get('Vendor_Code', ''),
                 'City': pfep_item.get('City', ''),
@@ -185,39 +217,43 @@ class InventoryAnalyzer:
             }
             results.append(result)
         return results
+
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
         vendor_summary = {}
         for item in processed_data:
-            vendor = item['Vendor']
+            vendor = item.get('VENDOR_NAME', item.get('Vendor', 'Unknown'))
             if vendor not in vendor_summary:
                 vendor_summary[vendor] = {
                     'total_parts': 0,
-                    'total_qty': 0,
-                    'total_rm': 0,
-                    'total_value': 0,
+                    'total_qty': 0.0,
+                    'total_rm': 0.0,
+                    'total_value': 0.0,
                     'short_parts': 0,
                     'excess_parts': 0,
                     'normal_parts': 0,
-                    'short_value': 0,
-                    'excess_value': 0,
-                    'normal_value': 0
+                    'short_value': 0.0,
+                    'excess_value': 0.0,
+                    'normal_value': 0.0
                 }
             vendor_summary[vendor]['total_parts'] += 1
-            vendor_summary[vendor]['total_qty'] += item['QTY']
-            vendor_summary[vendor]['total_rm'] += item['RM IN QTY']
-            vendor_summary[vendor]['total_value'] += item['Stock_Value']
-            if item['Status'] == 'Short Inventory':
+            vendor_summary[vendor]['total_qty'] += float(item.get('Current_Inventory_QTY', item.get('QTY', 0)))
+            vendor_summary[vendor]['total_rm'] += float(item.get('RM_IN_QTY', item.get('RM IN QTY', 0)))
+            vendor_summary[vendor]['total_value'] += float(item.get('Current_Inventory_VALUE', item.get('Stock_Value', 0)))
+            
+            status = item.get('STATUS', item.get('Status', ''))
+            stock_value = float(item.get('Current_Inventory_VALUE', item.get('Stock_Value', 0)))
+            
+            if status == 'Short Inventory':
                 vendor_summary[vendor]['short_parts'] += 1
-                vendor_summary[vendor]['short_value'] += item['Stock_Value']
-            elif item['Status'] == 'Excess Inventory':
+                vendor_summary[vendor]['short_value'] += stock_value
+            elif status == 'Excess Inventory':
                 vendor_summary[vendor]['excess_parts'] += 1
-                vendor_summary[vendor]['excess_value'] += item['Stock_Value']
+                vendor_summary[vendor]['excess_value'] += stock_value
             else:
                 vendor_summary[vendor]['normal_parts'] += 1
-                vendor_summary[vendor]['normal_value'] += item['Stock_Value']
+                vendor_summary[vendor]['normal_value'] += stock_value
         return vendor_summary
-
 class InventoryManagementSystem:
     """Main application class"""
     
