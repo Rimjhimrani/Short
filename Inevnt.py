@@ -569,16 +569,14 @@ class InventoryManagementSystem:
             'City': str(row.get(mapped_columns.get('city', ''), '')).strip(),
             'State': str(row.get(mapped_columns.get('state', ''), '')).strip()
         }
-
         standardized_data.append(item)
     return standardized_data
-
     
     def standardize_current_inventory(self, df):
         """Standardize current inventory data with full column mappings and debugging."""
         if df is None or df.empty:
             return []
-            # 🔁 Add all possible column mappings
+        # 🔁 Add all possible column mappings
         column_mappings = {
             'part_no': ['part_no', 'part_number', 'material', 'material_code', 'item_code', 'code'],
             'description': ['description', 'item_description', 'part_description', 'desc'],
@@ -623,10 +621,10 @@ class InventoryManagementSystem:
                 standardized_data.append(item)
                 if self.debug and i < 5:
                     st.write(f"🔍 Row {i+1}: {item}")
-            except Exception as e:
-                if self.debug:
-                    st.write(f"⚠️ Error processing row {i+1}: {e}")
-                continue
+             except Exception as e:
+                 if self.debug:
+                     st.write(f"⚠️ Error processing row {i+1}: {e}")
+                 continue
         if self.debug:
             st.write(f"✅ Total standardized records: {len(standardized_data)}")
         return standardized_data  # ✅ fixed typo here
