@@ -197,7 +197,7 @@ class InventoryAnalyzer:
             }
             results.append(result)
         
-        return result
+        return results
 
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
