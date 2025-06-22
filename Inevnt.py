@@ -135,21 +135,20 @@ class InventoryAnalyzer:
         }
         
     def analyze_inventory(self, pfep_data, current_inventory):
-        """Clean inventory analysis using RM in QTY and replacing variance labels"""
+        """Inventory analysis with safe handling and renamed outputs"""
         results = []
         pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
         inventory_dict = {str(item['Part_No']).strip().upper(): item for item in current_inventory}
         for part_no, pfep_item in pfep_dict.items():
             inventory_item = inventory_dict.get(part_no, {})
-            
-            unit_price = pfep_item.get('Unit_Price', 0)
-            rm_qty = pfep_item.get('RM_IN_QTY', 0)
-            current_qty = inventory_item.get('Current_QTY', 0)
+            # Safely extract values
+            unit_price = self.safe_float_convert(pfep_item.get('Unit_Price', 0))
+            rm_qty = self.safe_float_convert(pfep_item.get('RM_IN_QTY', 0))
+            current_qty = self.safe_float_convert(inventory_item.get('Current_QTY', 0))
             
             short_excess_qty = current_qty - rm_qty
             short_excess_value = short_excess_qty * unit_price
-            
-            # Inventory status
+            # Status logic
             if short_excess_qty < 0:
                 status = "Short Norms"
             elif short_excess_qty > 0:
@@ -167,7 +166,7 @@ class InventoryAnalyzer:
                 'Current Inventory - VALUE': current_qty * unit_price,
                 'SHORT/EXCESS INVENTORY': short_excess_qty,
                 'INVENTORY REMARK STATUS': status,
-                'VALUE(Unit Price* Short/Excess Inventory)': short_excess_value
+                'VALUE': short_excess_value
             }
             results.append(result)
         return results
