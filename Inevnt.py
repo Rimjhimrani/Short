@@ -227,7 +227,7 @@ class InventoryAnalyzer:
         for item in filtered:
             vendor = item.get('Vendor Name', 'Unknown')
             try:
-                item.get('Stock_Value', item.get('Current Inventory - VALUE', 0))
+                stock_value = row['Stock_Value'] if 'Stock_Value' in row else row.get('Current Inventory - VALUE', 0)
             except:
                 stock_value = 0
             vendor_totals[vendor] += stock_value
