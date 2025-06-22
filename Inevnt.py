@@ -575,10 +575,10 @@ class InventoryManagementSystem:
 
     
     def standardize_current_inventory(self, df):
-       """Standardize current inventory data with full column mappings and debugging."""
+        """Standardize current inventory data with full column mappings and debugging."""
         if df is None or df.empty:
             return []
-        # 🔁 Add all possible column mappings
+            # 🔁 Add all possible column mappings
         column_mappings = {
             'part_no': ['part_no', 'part_number', 'material', 'material_code', 'item_code', 'code'],
             'description': ['description', 'item_description', 'part_description', 'desc'],
