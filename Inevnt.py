@@ -177,6 +177,8 @@ class InventoryAnalyzer:
             current_value = self.safe_float_convert(
                 inventory_item.get('Stock_Value') or current_qty * unit_price
             )
+            if unit_price == 0 or rm_qty == 0:
+                print(f"⚠️ DEBUG: Missing Unit_Price or RM_IN_QTY for part '{part_no}'")
 
             short_excess_qty = current_qty - rm_qty
             short_excess_value = short_excess_qty * unit_price
