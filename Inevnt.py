@@ -1232,31 +1232,31 @@ class InventoryManagementSystem:
             # 3. Bar - Top Vendors by QTY
             if show_vendor_short:
                 st.subheader("🔴 Top 10 Vendors in Short Inventory")
-                show_vendor_chart_by_status(
+                analyzer.show_vendor_chart_by_status(
                     processed_data,
                     'Short Norms',
                     "Top 10 Vendors in Short Inventory",
                     "vendor_short_chart",
                     color='#F44336'
-            )
+                )
             if show_vendor_excess:
                 st.subheader("🔵 Top 10 Vendors in Excess Inventory")
-                show_vendor_chart_by_status(
+                analyzer.show_vendor_chart_by_status(
                     processed_data,
                     'Excess Norms',
                     "Top 10 Vendors in Excess Inventory",
                     "vendor_excess_chart",
                     color='#2196F3'
-            )
+                )
             if show_vendor_within:
                 st.subheader("🟢 Top 10 Vendors in Within Norms")
-                show_vendor_chart_by_status(
+                analyzer.show_vendor_chart_by_status(
                     processed_data,
                     'Within Norms',
                     "Top 10 Vendors in Within Norms",
                     "vendor_within_chart",
                     color='#4CAF50'
-            )
+                )
             # 4. Top Parts Charts (Assumes function exists
             if show_excess:
                 st.subheader("🔵 Top 10 Excess Inventory Parts")
