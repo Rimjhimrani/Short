@@ -134,57 +134,44 @@ class InventoryAnalyzer:
             'Short Inventory': '#F44336'   # Red
         }
         
-    def analyze_inventory(self, pfep_data, current_inventory, tolerance=30):
-        """Analyze ONLY inventory parts that exist in PFEP"""
-        if tolerance is None:
-            tolerance = st.session_state.get("admin_tolerance", 30)  # default fallback
+    def analyze_inventory(self, pfep_data, current_inventory):
+        """Clean inventory analysis using RM in QTY and replacing variance labels"""
         results = []
-        # Create lookup dictionaries
         pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
         inventory_dict = {str(item['Part_No']).strip().upper(): item for item in current_inventory}
-        
-        # ✅ Loop over inventory only
-        for part_no, inventory_item in inventory_dict.items():
-            pfep_item = pfep_dict.get(part_no)
-            if not pfep_item:
-                continue  # Skip inventory parts not found in PFEP
-            current_qty = inventory_item.get('Current_QTY', 0)
-            stock_value = inventory_item.get('Stock_Value', 0)
+        for part_no, pfep_item in pfep_dict.items():
+            inventory_item = inventory_dict.get(part_no, {})
+            
+            unit_price = pfep_item.get('Unit_Price', 0)
             rm_qty = pfep_item.get('RM_IN_QTY', 0)
+            current_qty = inventory_item.get('Current_QTY', 0)
             
-            # Calculate variance
-            # 
-            if rm_qty > 0:
-                variance_pct = ((current_qty - rm_qty) / rm_qty) * 100
+            short_excess_qty = current_qty - rm_qty
+            short_excess_value = short_excess_qty * unit_price
+            
+            # Inventory status
+            if short_excess_qty < 0:
+                status = "Short Norms"
+            elif short_excess_qty > 0:
+                status = "Excess Norms"
             else:
-                variance_pct = 0
-            
-            variance_value = current_qty - rm_qty
-            
-            # Determine status
-            if abs(variance_pct) <= tolerance:
-                status = 'Within Norms'
-            elif variance_pct > tolerance:
-                status = 'Excess Inventory'
-            else:
-                status = 'Short Inventory'
-            
+                status = "Within Norms"
             result = {
-                'Material': part_no,
-                'Description': pfep_item.get('Description', ''),
-                'QTY': current_qty,
-                'RM IN QTY': rm_qty,
-                'Stock_Value': stock_value,
-                'Variance_%': variance_pct,
-                'Variance_Value': variance_value,
-                'Status': status,
-                'Vendor': pfep_item.get('Vendor_Name', 'Unknown'),
-                'Vendor_Code': pfep_item.get('Vendor_Code', ''),
-                'City': pfep_item.get('City', ''),
-                'State': pfep_item.get('State', '')
+                'PART NO': part_no,
+                'PART DESCRIPTION': pfep_item.get('Description', ''),
+                'VENDOR CODE': pfep_item.get('Vendor_Code', ''),
+                'VENDOR NAME': pfep_item.get('Vendor_Name', ''),
+                'UNIT PRICE': unit_price,
+                'Inventory Norms - QTY': rm_qty,
+                'Current Inventory-QTY': current_qty,
+                'Current Inventory - VALUE': current_qty * unit_price,
+                'SHORT/EXCESS INVENTORY': short_excess_qty,
+                'INVENTORY REMARK STATUS': status,
+                'VALUE(Unit Price* Short/Excess Inventory)': short_excess_value
             }
             results.append(result)
         return results
+
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
         vendor_summary = {}
