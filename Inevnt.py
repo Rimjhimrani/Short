@@ -190,6 +190,13 @@ class InventoryAnalyzer:
             results.append(result)
         return results
 
+    def display_analysis_interface(self):
+        st.title("📊 Inventory Analysis")
+        st.info("This is where the main interface would go.")
+
+    def run(self):  # ✅ This must be indented INSIDE the class
+        self.display_analysis_interface()
+        
     def get_vendor_summary(self, processed_data):
         """Summarize inventory by vendor using actual Stock_Value field from the file."""
         from collections import defaultdict
