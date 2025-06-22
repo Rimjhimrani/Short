@@ -178,6 +178,7 @@ class InventoryAnalyzer:
                 'Current Inventory - VALUE': stock_value,
                 'SHORT/EXCESS INVENTORY': short_excess_qty,
                 'INVENTORY REMARK STATUS': status,
+                'Status': status,  # ✅ Add this line
                 'VALUE(Unit Price* Short/Excess Inventory)': value,
                 'UNIT PRICE': unit_price,
                 'RM IN DAYS': rm_days,
