@@ -217,7 +217,7 @@ class InventoryAnalyzer:
             elif status == "Within Norms":
                 summary[vendor]['normal_parts'] += 1
             return summary
-    def show_vendor_chart_by_status(processed_data, status_filter, chart_title, chart_key, color):
+    def show_vendor_chart_by_status(self, processed_data, status_filter, chart_title, chart_key, colo):
         """Show top 10 vendors filtered by inventory remark status (short, excess, within norms)"""
         from collections import defaultdict
         # Filter by inventory status
