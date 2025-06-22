@@ -218,29 +218,29 @@ class InventoryAnalyzer:
                 summary[vendor]['normal_parts'] += 1
             return summary
     def show_vendor_chart_by_status(processed_data, status_filter, chart_title, chart_key, color):
-        """Show top 10 vendors filtered by inventory remark status (short, excess, within)"""
-        # Filter only relevant parts
+        """Show top 10 vendors filtered by inventory remark status (short, excess, within norms)"""
+        from collections import defaultdict
+        # Filter by inventory status
         filtered = [item for item in processed_data if item.get('INVENTORY REMARK STATUS') == status_filter]
-        # Group by vendor and sum Stock_Value
+        # Sum Stock Value by Vendor
         vendor_totals = defaultdict(float)
         for item in filtered:
             vendor = item.get('Vendor Name', 'Unknown')
             try:
-                value = float(item.get('Stock_Value', 0))
+                stock_value = float(item.get('Stock_Value', 0))
             except:
-                value = 0
-            vendor_totals[vendor] += value
-        # Top 10 vendors by value
+                stock_value = 0
+            vendor_totals[vendor] += stock_value
+        # Sort top 10
         sorted_vendors = sorted(vendor_totals.items(), key=lambda x: x[1], reverse=True)[:10]
         if not sorted_vendors:
-            st.info(f"No vendors found in {status_filter}")
+            st.info(f"No vendors found in '{status_filter}'")
             return
-        vendors = [v[0] for v in sorted_vendors]
-        values = [v[1] for v in sorted_vendors]
-        # Plot
+        vendor_names = [v[0] for v in sorted_vendors]
+        stock_values = [v[1] for v in sorted_vendors]
+        # Plot chart
         fig = go.Figure()
-        fig.add_trace(go.Bar(x=vendors, y=values, marker_color=color))
-
+        fig.add_trace(go.Bar(x=vendor_names, y=stock_values, marker_color=color))
         fig.update_layout(
             title=chart_title,
             xaxis_title="Vendor",
@@ -248,6 +248,7 @@ class InventoryAnalyzer:
             showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, key=chart_key)
+
 
 class InventoryManagementSystem:
     """Main application class"""
