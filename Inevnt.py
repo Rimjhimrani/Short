@@ -210,13 +210,14 @@ class InventoryAnalyzer:
                 stock_value = 0.0
             summary[vendor]['total_parts'] += 1
             summary[vendor]['total_value'] += stock_value
-            if status == "Short Norms":
+            if status == "Short Inventory":  # Fixed status name
                 summary[vendor]['short_parts'] += 1
-            elif status == "Excess Norms":
+            elif status == "Excess Inventory":  # Fixed status name
                 summary[vendor]['excess_parts'] += 1
             elif status == "Within Norms":
                 summary[vendor]['normal_parts'] += 1
-            return summary
+        # Fixed: Return statement moved outside the loop
+        return summary
     def show_vendor_chart_by_status(self, processed_data, status_filter, chart_title, chart_key, color):
         """Show top 10 vendors filtered by inventory remark status (short, excess, within norms)"""
         from collections import defaultdict
@@ -227,9 +228,11 @@ class InventoryAnalyzer:
         for item in filtered:
             vendor = item.get('Vendor Name', 'Unknown')
             try:
-                stock_value = row['Stock_Value'] if 'Stock_Value' in row else row.get('Current Inventory - VALUE', 0)
-            except:
-                stock_value = 0
+                # Fixed: Use 'item' instead of undefined 'row' variable
+                stock_value = item.get('Stock_Value', 0) or item.get('Current Inventory - VALUE', 0)
+                stock_value = float(stock_value) if stock_value else 0.0
+            except (ValueError, TypeError):
+                stock_value = 0.0
             vendor_totals[vendor] += stock_value
         # Sort top 10
         sorted_vendors = sorted(vendor_totals.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -248,7 +251,6 @@ class InventoryAnalyzer:
             showlegend=False
         )
         st.plotly_chart(fig, use_container_width=True, key=chart_key)
-
 
 class InventoryManagementSystem:
     """Main application class"""
