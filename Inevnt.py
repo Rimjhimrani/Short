@@ -135,41 +135,69 @@ class InventoryAnalyzer:
         }
         
     def analyze_inventory(self, pfep_data, current_inventory):
-        """Inventory analysis with safe handling and renamed outputs"""
+        """Modified inventory analysis to match required output format"""
         results = []
-        pfep_dict = {str(item['Part_No']).strip().upper(): item for item in pfep_data}
-        inventory_dict = {str(item['Part_No']).strip().upper(): item for item in current_inventory}
+        
+        # Create dictionaries for faster lookup - normalize keys
+        pfep_dict = {}
+        for item in pfep_data:
+            key = str(item['Part_No']).strip().upper()
+            pfep_dict[key] = item
+        
+        inventory_dict = {}
+        for item in current_inventory:
+            key = str(item['Part_No']).strip().upper()
+            inventory_dict[key] = item
+        
+        # Process each part from PFEP
         for part_no, pfep_item in pfep_dict.items():
             inventory_item = inventory_dict.get(part_no, {})
-            # Safely extract values
-            unit_price = self.safe_float_convert(pfep_item.get('Unit_Price', 0))
-            rm_qty = self.safe_float_convert(pfep_item.get('RM_IN_QTY', 0))
-            current_qty = self.safe_float_convert(inventory_item.get('Current_QTY', 0))
             
-            short_excess_qty = current_qty - rm_qty
-            short_excess_value = short_excess_qty * unit_price
-            # Status logic
-            if short_excess_qty < 0:
-                status = "Short Norms"
-            elif short_excess_qty > 0:
-                status = "Excess Norms"
-            else:
+            # Safely extract values
+            unit_price = self.safe_float_convert(pfep_item.get('Unit_Price', pfep_item.get('unit_price', 0)))
+            rm_in_days = self.safe_float_convert(pfep_item.get('RM_IN_DAYS', pfep_item.get('rm_in_days', 8)))  # Default 8 days
+            avg_consumption_day = self.safe_float_convert(pfep_item.get('AVG_CONSUMPTION_DAY', pfep_item.get('avg_consumption_day', 8)))  # Default 8
+            rm_in_qty = rm_in_days * avg_consumption_day  # Calculate RM IN QTY
+            current_qty = self.safe_float_convert(inventory_item.get('Current_QTY', 0))
+            current_value = self.safe_float_convert(inventory_item.get('Stock_Value', current_qty * unit_price))
+            
+            # Calculate short/excess inventory
+            short_excess_qty = current_qty - rm_in_qty
+            
+            # Determine status and remark
+            if abs(short_excess_qty) <= (rm_in_qty * tolerance / 100):
                 status = "Within Norms"
+                remark = "Within Norms"
+            elif short_excess_qty > 0:
+                status = "Excess Inventory"
+                remark = "Excess Norms"
+            else:
+                status = "Short Inventory"
+                remark = "Short Norms"
+            
+            # Calculate status value (Unit Price * Short/Excess Inventory)
+            status_value = unit_price * short_excess_qty
+            
             result = {
-                'PART NO': part_no,
-                'PART DESCRIPTION': pfep_item.get('Description', ''),
-                'VENDOR CODE': pfep_item.get('Vendor_Code', ''),
-                'VENDOR NAME': pfep_item.get('Vendor_Name', ''),
-                'UNIT PRICE': unit_price,
-                'Inventory Norms - QTY': rm_qty,
-                'Current Inventory-QTY': current_qty,
-                'Current Inventory - VALUE': current_qty * unit_price,
-                'SHORT/EXCESS INVENTORY': short_excess_qty,
-                'INVENTORY REMARK STATUS': status,
-                'VALUE': short_excess_value
+                'PART_NO': part_no,
+                'PART_DESCRIPTION': pfep_item.get('Description', ''),
+                'VENDOR_CODE': pfep_item.get('Vendor_Code', ''),
+                'VENDOR_NAME': pfep_item.get('Vendor_Name', 'Unknown'),
+                'UNIT_PRICE': unit_price,
+                'RM_IN_DAYS': rm_in_days,
+                'AVG_CONSUMPTION_DAY': avg_consumption_day,
+                'RM_IN_QTY': rm_in_qty,
+                'CURRENT_INVENTORY_QTY': current_qty,
+                'CURRENT_INVENTORY_VALUE': current_value,
+                'SHORT_EXCESS_QTY': short_excess_qty,
+                'INVENTORY_REMARK': remark,
+                'STATUS': status,
+                'STATUS_VALUE': status_value,
+                'Tolerance_Used': tolerance
             }
             results.append(result)
-        return results
+        
+        return result
 
     def get_vendor_summary(self, processed_data):
         """Get summary data by vendor"""
@@ -293,24 +321,24 @@ class InventoryManagementSystem:
 
     def create_top_parts_chart(self, data, status_type, color, key):
         # Filter top 10 parts of the given status type
-        top_items = [item for item in data if item['Status'] == status_type]
-        top_items = sorted(top_items, key=lambda x: abs(x['Variance_%']), reverse=True)[:10]
+        top_items = [item for item in data if item.get('STATUS') == status_type]
+        top_items = sorted(top_items, key=lambda x: abs(x.get('SHORT_EXCESS_QTY', 0)), reverse=True)[:10]
 
         if not top_items:
             st.info(f"No parts found for status: {status_type}")
             return
 
-        materials = [item['Material'] for item in top_items]
-        variances = [item['Variance_%'] for item in top_items]
+        materials = [item.get('PART_NO', '') for item in top_items]
+        short_excess = [item.get('SHORT_EXCESS_QTY', 0) for item in top_items]
 
         fig = go.Figure(data=[
-            go.Bar(x=variances, y=materials, orientation='h', marker_color=color)
+            go.Bar(x=short_excess, y=materials, orientation='h', marker_color=color)
         ])
 
         fig.update_layout(
             title=f"Top 10 Parts - {status_type}",
-            xaxis_title="Variance %",
-            yaxis_title="Material Code",
+            xaxis_title="Short/Excess Quantity",
+            yaxis_title="Part Number",
             yaxis=dict(autorange='reversed')
         )
 
