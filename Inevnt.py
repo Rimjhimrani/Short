@@ -621,10 +621,10 @@ class InventoryManagementSystem:
                 standardized_data.append(item)
                 if self.debug and i < 5:
                     st.write(f"🔍 Row {i+1}: {item}")
-             except Exception as e:
-                 if self.debug:
-                     st.write(f"⚠️ Error processing row {i+1}: {e}")
-                 continue
+            except Exception as e:
+                if self.debug:
+                    st.write(f"⚠️ Error processing row {i+1}: {e}")
+                continue
         if self.debug:
             st.write(f"✅ Total standardized records: {len(standardized_data)}")
         return standardized_data  # ✅ fixed typo here
