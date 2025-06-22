@@ -1327,11 +1327,11 @@ class InventoryManagementSystem:
                     key="tab2_vendor_filter"
                 )
             # === Apply filters ===
-            filtered_data = processed_data.copy()
+            filtered_df = processed_data.copy()
             if status_filter != 'All':
-                filtered_data = [item for item in filtered_data if item.get('STATUS') == status_filter]
+                filtered_df= [item for item in filtered_data if item.get('STATUS') == status_filter]
             if vendor_filter != 'All':
-                filtered_data = [item for item in filtered_data if item.get('Vendor Name') == vendor_filter]
+                filtered_df = [item for item in filtered_data if item.get('Vendor Name') == vendor_filter]
             # === Display Data ===
             if filtered_data:
                 df_display = pd.DataFrame(filtered_data)
