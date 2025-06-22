@@ -988,7 +988,7 @@ class InventoryManagementSystem:
                 st.rerun()
     
     def display_validation_results(self, validation):
-       """Display validation results with detailed statistics"""
+        """Display validation results with detailed statistics"""
         st.subheader("🔍 Data Validation Results")
         if validation['is_valid']:
             st.success("✅ Validation passed!")
