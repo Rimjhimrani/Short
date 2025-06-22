@@ -1335,8 +1335,8 @@ class InventoryManagementSystem:
             if vendor_filter != 'All':
                 filtered_df = [item for item in filtered_data if item.get('Vendor Name') == vendor_filter]
             # === Display Data ===
-            if filtered_data:
-                df_display = pd.DataFrame(filtered_data)
+            if filtered_df:
+                df_display = pd.DataFrame(filtered_df)
                 # Format currency field
                 df_display['Stock_Value'] = df_display['Stock_Value'].apply(lambda x: f"₹{x:,.2f}")
                 df_display['VALUE(Unit Price* Short/Excess Inventory)'] = df_display['VALUE(Unit Price* Short/Excess Inventory)'].apply(lambda x: f"₹{x:,.2f}")
@@ -1352,7 +1352,7 @@ class InventoryManagementSystem:
                 df_display = df_display[column_order]
 
                 st.dataframe(df_display, use_container_width=True, hide_index=True)
-                st.success(f"✅ Showing {len(filtered_data)} filtered items.")
+                st.success(f"✅ Showing {len(filtered_df)} filtered items.")
             else:
                 st.warning("No data matches the selected filters.")
 
