@@ -553,24 +553,22 @@ class InventoryManagementSystem:
         # Check for required columns
         if 'part_no' not in mapped_columns or 'rm_qty' not in mapped_columns:
             st.error("❌ Required columns not found. Please ensure your file has Part Number and RM Quantity columns.")
-        return []
-
-    standardized_data = []
-
-    for _, row in df.iterrows():
-        item = {
-            'Part_No': str(row[mapped_columns['part_no']]).strip(),
-            'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
-            'RM_IN_QTY': self.safe_float_convert(row[mapped_columns['rm_qty']]),
-            'RM_IN_DAYS': self.safe_float_convert(row.get(mapped_columns.get('rm_days', ''), 0)),
-            'Unit_Price': self.safe_float_convert(row.get(mapped_columns.get('unit_price', ''), 0)),
-            'Vendor_Code': str(row.get(mapped_columns.get('vendor_code', ''), '')).strip(),
-            'Vendor_Name': str(row.get(mapped_columns.get('vendor_name', ''), 'Unknown')).strip(),
-            'City': str(row.get(mapped_columns.get('city', ''), '')).strip(),
-            'State': str(row.get(mapped_columns.get('state', ''), '')).strip()
-        }
-        standardized_data.append(item)
-    return standardized_data
+            return []
+        standardized_data = []
+        for _, row in df.iterrows():
+            item = {
+                'Part_No': str(row[mapped_columns['part_no']]).strip(),
+                'Description': str(row.get(mapped_columns.get('description', ''), '')).strip(),
+                'RM_IN_QTY': self.safe_float_convert(row[mapped_columns['rm_qty']]),
+                'RM_IN_DAYS': self.safe_float_convert(row.get(mapped_columns.get('rm_days', ''), 0)),
+                'Unit_Price': self.safe_float_convert(row.get(mapped_columns.get('unit_price', ''), 0)),
+                'Vendor_Code': str(row.get(mapped_columns.get('vendor_code', ''), '')).strip(),
+                'Vendor_Name': str(row.get(mapped_columns.get('vendor_name', ''), 'Unknown')).strip(),
+                'City': str(row.get(mapped_columns.get('city', ''), '')).strip(),
+                'State': str(row.get(mapped_columns.get('state', ''), '')).strip()
+            }
+            standardized_data.append(item)
+        return standardized_data
     
     def standardize_current_inventory(self, df):
         """Standardize current inventory data with full column mappings and debugging."""
