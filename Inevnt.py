@@ -988,10 +988,19 @@ class InventoryManagementSystem:
                 st.rerun()
     
     def display_validation_results(self, validation):
-        """Display inventory validation results"""
+       """Display validation results with detailed statistics"""
         st.subheader("🔍 Data Validation Results")
-        
-        # Summary metrics
+        if validation['is_valid']:
+            st.success("✅ Validation passed!")
+        else:
+            st.error("❌ Validation issues found:")
+            for issue in validation['issues']:
+                st.error(f"• {issue}")
+        if validation['warnings']:
+            st.warning("⚠️ Warnings:")
+            for warning in validation['warnings']:
+                st.warning(f"• {warning}")
+        # Display statistics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("PFEP Parts", validation['pfep_parts_count'])
@@ -1000,38 +1009,37 @@ class InventoryManagementSystem:
         with col3:
             st.metric("Matching Parts", validation['matching_parts_count'])
         with col4:
-            match_percentage = (validation['matching_parts_count'] / validation['pfep_parts_count']) * 100
-            st.metric("Match %", f"{match_percentage:.1f}%")
-        
-        # Issues and warnings
-        if validation['issues']:
-            st.error("❌ **Issues Found:**")
-            for issue in validation['issues']:
-                st.error(f"• {issue}")
-        
-        if validation['warnings']:
-            st.warning("⚠️ **Warnings:**")
-            for warning in validation['warnings']:
-                st.warning(f"• {warning}")
-        
-        if validation['is_valid']:
-            st.success("✅ **Validation Passed:** Inventory data is compatible with PFEP master data.")
+            matching_rate = (validation['matching_parts_count'] / validation['pfep_parts_count'] * 100) if validation['pfep_parts_count'] > 0 else 0
+            st.metric("Match Rate", f"{matching_rate:.1f}%")
+        if validation['missing_parts_count'] > 0:
+            st.warning(f"📋 {validation['missing_parts_count']} parts from PFEP not found in inventory")
+        if validation['extra_parts_count'] > 0:
+            st.info(f"📦 {validation['extra_parts_count']} extra parts found in inventory (not in PFEP)")
     
     def perform_inventory_analysis(self):
+        """Perform comprehensive inventory analysis"""
         pfep_data = self.persistence.load_data_from_session_state('persistent_pfep_data')
         inventory_data = self.persistence.load_data_from_session_state('persistent_inventory_data')
         if not pfep_data or not inventory_data:
             st.error("❌ Missing data for analysis")
             return
-        # Get tolerance from admin setting (FIXED)
-        tolerance = st.session_state.get('admin_tolerance', 30)
-        # Perform analysis
-        with st.spinner(f"Analyzing inventory with ±{tolerance}% tolerance..."):
-            analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data, tolerance)
+        with st.spinner("Analyzing inventory..."):
+            # Get tolerance from admin settings
+            tolerance = st.session_state.get('admin_tolerance', 30)
+            # Perform analysis
+            analysis_results = self.analyzer.analyze_inventory(pfep_data, inventory_data)
+            # Apply tolerance logic
+            for result in analysis_results:
+                rm_qty = result['Inventory Norms - QTY']
+                current_qty = result['Current Inventory-QTY']
+                if rm_qty > 0:
+                    variance_percent = abs(current_qty - rm_qty) / rm_qty * 100
+                if variance_percent <= tolerance:
+                    result['STATUS'] = 'Within Norms'
+                    result['INVENTORY REMARK STATUS'] = 'Within Tolerance
+            # Save results
             self.persistence.save_data_to_session_state('persistent_analysis_results', analysis_results)
-            # Track which tolerance was used for this analysis
-            st.session_state.last_analysis_tolerance = tolerance
-        st.success(f"✅ Analysis completed for {len(analysis_results)} parts with ±{tolerance}% tolerance!")
+            st.success(f"✅ Analysis completed! {len(analysis_results)} parts analyzed.")
     
     def display_analysis_results(self):
         """Display comprehensive inventory analysis results"""
