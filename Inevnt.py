@@ -145,68 +145,71 @@ class InventoryAnalyzer:
             return 0.0
         
     def analyze_inventory(self, pfep_data, current_inventory):
-        """Modified inventory analysis to match required output format"""
         results = []
-        
-        # Create dictionaries for faster lookup - normalize keys
+        # Normalize PFEP part numbers
         pfep_dict = {}
         for item in pfep_data:
-            key = str(item['Part_No']).strip().upper()
+            key = self.normalize_part_no(item.get('Part_No') or item.get('Material', ''))
             pfep_dict[key] = item
-        
+
+        # Normalize inventory part numbers
         inventory_dict = {}
         for item in current_inventory:
-            key = str(item['Part_No']).strip().upper()
+            key = self.normalize_part_no(item.get('Part_No') or item.get('Material', ''))
             inventory_dict[key] = item
-        
-        # Process each part from PFEP
+
+        # Analyze each PFEP part
         for part_no, pfep_item in pfep_dict.items():
             inventory_item = inventory_dict.get(part_no, {})
-            
-            # Safely extract values
-            unit_price = self.safe_float_convert(pfep_item.get('Unit_Price', pfep_item.get('unit_price', 0)))
-            rm_in_days = self.safe_float_convert(pfep_item.get('RM_IN_DAYS', pfep_item.get('rm_in_days', 8)))  # Default 8 days
-            avg_consumption_day = self.safe_float_convert(pfep_item.get('AVG_CONSUMPTION_DAY', pfep_item.get('avg_consumption_day', 8)))  # Default 8
-            rm_in_qty = rm_in_days * avg_consumption_day  # Calculate RM IN QTY
-            current_qty = self.safe_float_convert(inventory_item.get('Current_QTY', 0))
-            current_value = self.safe_float_convert(inventory_item.get('Stock_Value', current_qty * unit_price))
-            
-            # Calculate short/excess inventory
-            short_excess_qty = current_qty - rm_in_qty
-            
-            # Determine status and remark
-            if abs(short_excess_qty) <= (rm_in_qty * tolerance / 100):
-                status = "Within Norms"
-                remark = "Within Norms"
-            elif short_excess_qty > 0:
-                status = "Excess Inventory"
-                remark = "Excess Norms"
-            else:
-                status = "Short Inventory"
+
+            if not inventory_item:
+                print(f"❌ DEBUG: Part {part_no} from PFEP not found in inventory data")
+
+            unit_price = self.safe_float_convert(
+                pfep_item.get('Unit_Price') or pfep_item.get('UNIT PRICE') or 0
+            )
+            rm_qty = self.safe_float_convert(
+                pfep_item.get('RM_IN_QTY') or pfep_item.get('Inventory Norms - QTY') or 0
+            )
+            current_qty = self.safe_float_convert(
+                inventory_item.get('Current_QTY') or inventory_item.get('QTY') or 0
+            )
+            current_value = self.safe_float_convert(
+                inventory_item.get('Stock_Value') or current_qty * unit_price
+            )
+
+            short_excess_qty = current_qty - rm_qty
+            short_excess_value = short_excess_qty * unit_price
+
+            # Determine inventory status
+            if short_excess_qty < 0:
                 remark = "Short Norms"
-            
-            # Calculate status value (Unit Price * Short/Excess Inventory)
-            status_value = unit_price * short_excess_qty
-            
+                status = "Short Inventory"
+            elif short_excess_qty > 0:
+                remark = "Excess Norms"
+                status = "Excess Inventory"
+            else:
+                remark = "Within Norms"
+                status = "Within Norms"
+
             result = {
-                'PART_NO': part_no,
-                'PART_DESCRIPTION': pfep_item.get('Description', ''),
-                'VENDOR_CODE': pfep_item.get('Vendor_Code', ''),
-                'VENDOR_NAME': pfep_item.get('Vendor_Name', 'Unknown'),
-                'UNIT_PRICE': unit_price,
-                'RM_IN_DAYS': rm_in_days,
-                'AVG_CONSUMPTION_DAY': avg_consumption_day,
-                'RM_IN_QTY': rm_in_qty,
-                'CURRENT_INVENTORY_QTY': current_qty,
-                'CURRENT_INVENTORY_VALUE': current_value,
-                'SHORT_EXCESS_QTY': short_excess_qty,
-                'INVENTORY_REMARK': remark,
-                'STATUS': status,
-                'STATUS_VALUE': status_value,
-                'Tolerance_Used': tolerance
+                'PART NO': part_no,
+                'PART DESCRIPTION': pfep_item.get('Description') or pfep_item.get('PART DESCRIPTION', ''),
+                'VENDOR CODE': pfep_item.get('Vendor_Code', ''),
+                'VENDOR NAME': pfep_item.get('Vendor_Name') or pfep_item.get('VENDOR NAME', ''),
+                'UNIT PRICE': unit_price,
+                'Inventory Norms - QTY': rm_qty,
+                'Current Inventory-QTY': current_qty,
+                'Current Inventory - VALUE': current_value,
+                'SHORT/EXCESS INVENTORY': short_excess_qty,
+                'INVENTORY REMARK STATUS': remark,
+                'VALUE(Unit Price* Short/Excess Inventory)': short_excess_value,
+                'STATUS': status
             }
+
             results.append(result)
-        
+
+        print(f"✅ DEBUG: Processed {len(results)} parts total")
         return results
 
     def get_vendor_summary(self, processed_data):
