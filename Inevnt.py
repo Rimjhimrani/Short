@@ -1276,39 +1276,39 @@ class InventoryManagementSystem:
                 self.create_top_parts_chart(processed_data, 'Within Norms', analyzer.status_colors['Within Norms'], key="top_normal")
                 
             # 5. Variance Top Chart
-           if show_short_excess_top:
-               st.subheader("📦 Top 10 Short/Excess Parts by Value")
-               st.markdown('<div class="graph-description">This bar chart shows the top 10 inventory items where the financial impact is highest due to short or excess stock.</div>', unsafe_allow_html=True)
-               # Filter only Short or Excess
-               filtered = [
-                   item for item in processed_data
-                   if item.get('INVENTORY REMARK STATUS') in ['Short Norms', 'Excess Norms']
-               ]
-               # Sort by absolute ₹ impact
-               top_parts = sorted(
-                   filtered,
-                   key=lambda x: abs(x.get('VALUE(Unit Price* Short/Excess Inventory)', 0)),
-                   reverse=True
-               )[:10]
-               if not top_parts:
-                   st.info("No short or excess parts with value found.")
-               else:
-                   labels = [f"{item['PART NO']}<br>{item['PART DESCRIPTION']}" for item in top_parts]
-                   values = [item.get('VALUE(Unit Price* Short/Excess Inventory)', 0) for item in top_parts]
-                   colors = [
-                       '#F44336' if item['INVENTORY REMARK STATUS'] == 'Short Norms' else '#2196F3'
-                       for item in top_parts
-                   ]
-                   fig = go.Figure()
-                   fig.add_trace(go.Bar(x=values, y=labels, orientation='h', marker_color=colors))
+            if show_short_excess_top:
+                st.subheader("📦 Top 10 Short/Excess Parts by Value")
+                st.markdown('<div class="graph-description">This bar chart shows the top 10 inventory items where the financial impact is highest due to short or excess stock.</div>', unsafe_allow_html=True)
+                # Filter only Short or Excess
+                filtered = [
+                    item for item in processed_data
+                    if item.get('INVENTORY REMARK STATUS') in ['Short Norms', 'Excess Norms']
+                ]
+                # Sort by absolute ₹ impact
+                top_parts = sorted(
+                    filtered,
+                    key=lambda x: abs(x.get('VALUE(Unit Price* Short/Excess Inventory)', 0)),
+                    reverse=True
+                )[:10]
+                if not top_parts:
+                    st.info("No short or excess parts with value found.")
+                else:
+                    labels = [f"{item['PART NO']}<br>{item['PART DESCRIPTION']}" for item in top_parts]
+                    values = [item.get('VALUE(Unit Price* Short/Excess Inventory)', 0) for item in top_parts]
+                    colors = [
+                        '#F44336' if item['INVENTORY REMARK STATUS'] == 'Short Norms' else '#2196F3'
+                        for item in top_parts
+                    ]
+                    fig = go.Figure()
+                    fig.add_trace(go.Bar(x=values, y=labels, orientation='h', marker_color=colors))
                    
-                   fig.update_layout(
-                       title="Top 10 Short/Excess Inventory Parts by Value",
-                       xaxis_title="Value (₹)",
-                       yaxis_title="Part",
-                       yaxis=dict(autorange="reversed")
-                   )
-                   st.plotly_chart(fig, use_container_width=True, key="top_short_excess_value_chart")
+                    fig.update_layout(
+                        title="Top 10 Short/Excess Inventory Parts by Value",
+                        xaxis_title="Value (₹)",
+                        yaxis_title="Part",
+                        yaxis=dict(autorange="reversed")
+                    )
+                    st.plotly_chart(fig, use_container_width=True, key="top_short_excess_value_chart")
                 
         with tab2:
             st.header("📋 Detailed Inventory Data")
