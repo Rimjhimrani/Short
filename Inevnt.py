@@ -144,8 +144,14 @@ class InventoryAnalyzer:
         except (TypeError, ValueError):
             return 0.0
         
-    def analyze_inventory(self, pfep_data, current_inventory):
+    def analyze_inventory(self, pfep_data, inventory_data):
         results = []
+        print("🟨 PFEP Sample Rows:")
+        for i, row in enumerate(pfep_data[:3]):
+            print(f"PFEP Row {i+1}: {row}")
+        print("\n🟦 Inventory Sample Rows:")
+        for i, row in enumerate(inventory_data[:3]):
+            print(f"Inventory Row {i+1}: {row}")
         # Normalize PFEP part numbers
         pfep_dict = {}
         for item in pfep_data:
